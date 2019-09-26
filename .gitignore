@@ -1,0 +1,49 @@
+# Pycharm
+.idea/
+
+# Unreal stuff
+Saved/
+Intermediate/
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+#*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+#*.exe
+*.out
+*.app
+UE4Project/Surreal/Plugins/KantanAutoJson/
+UE4Project/Surreal/Plugins/TcpSocketPlugin/
+UE4Project/Surreal/.vs/
+*.sln
+UE4Project/Surreal/_ReSharper.Caches/
+UE4Project/Surreal/Binaries/
+UE4Project/Surreal/Plugins/DeepLearningHub/Binaries/
+UE4Project/Surreal/Plugins/DeepAI/Binaries/
+Examples/SimpleBall/Plugins/DeepAI
+UE4Project/Surreal/Plugins/DeepAI/Packaged/

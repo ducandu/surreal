@@ -1,0 +1,17 @@
+{
+  "gamma": 1.0,
+
+  "memory_capacity": 4,
+  "memory_batch_size": 2,
+
+  "epsilon": 0.0,
+
+  "update_frequency": 2,
+  "steps_before_update": 0,
+  "sync_frequency": 4,
+
+  "optimizer": {
+    "type": "sgd",
+    "learning_rate": 1.0
+  }
+}

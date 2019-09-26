@@ -1,0 +1,25 @@
+{
+  "gamma": 1.0,
+
+  "memory_capacity": 64,
+  "memory_batch_size": 24,
+
+  "epsilon": [1.0, 0.0],
+
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 10,
+      "activation": "linear"
+    }
+  ],
+
+  "update_frequency": 4,
+  "steps_before_update": "when-memory-full",
+  "sync_frequency": 8,
+
+  "optimizer": {
+    "type": "adam",
+    "learning_rate": 0.002
+  }
+}

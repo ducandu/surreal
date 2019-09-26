@@ -1,0 +1,36 @@
+{
+  "gamma": 0.99,
+
+  "memory_capacity": 10000,
+  "memory_batch_size": 128,
+
+  "epsilon": {
+    "type": "linear-decay",
+    "from": 1.0,
+    "to": 0.0,
+    "end_time_percentage": 0.9
+  },
+
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 128,
+      "activation": "tanh"
+    },
+    {
+      "name": "dense",
+      "units": 128,
+      "activation": "tanh"
+    }
+  ],
+
+  "update_frequency": 4,
+  "steps_before_update": 0,
+  "sync_frequency": 256,
+
+  "optimizer": {
+    "type": "adam",
+    "learning_rate": [0.01, 0.00001],
+    "clip_norm": 40
+  }
+}

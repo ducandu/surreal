@@ -1,0 +1,30 @@
+{
+  "gamma": 1.0,
+
+  "memory_capacity": 256,
+  "memory_batch_size": 64,
+
+  "epsilon": [1.0, 0.0],
+
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 20,
+      "activation": "relu"
+    },
+    {
+      "name": "dense",
+      "units": 20,
+      "activation": "relu"
+    }
+  ],
+
+  "update_frequency": 8,
+  "steps_before_update": "when-memory-full",
+  "sync_frequency": 64,
+
+  "optimizer": {
+    "type": "adam",
+    "learning_rate": [0.001, 0.00001]
+  }
+}

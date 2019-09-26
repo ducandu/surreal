@@ -1,0 +1,36 @@
+{
+  "gamma": 0.99,
+
+  "memory_capacity": 100000,
+  "memory_batch_size": 128,
+
+  "epsilon": [1.0, 0.05],
+
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 512,
+      "activation": "relu"
+    },
+    {
+      "name": "dense",
+      "units": 512,
+      "activation": "relu"
+    },
+    {
+      "name": "dense",
+      "units": 512,
+      "activation": "relu"
+    }
+  ],
+
+  "update_frequency": 4,
+  "steps_before_update": "when-memory-ready",
+  "sync_frequency": 512,
+
+  "optimizer": {
+    "type": "adam",
+    "learning_rate": [0.0001, 0.00001],
+    "clip_norm": 40
+  }
+}

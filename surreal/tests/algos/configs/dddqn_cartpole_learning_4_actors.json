@@ -1,0 +1,47 @@
+{
+  "gamma": 0.99,
+
+  "memory_capacity": 10000,
+  "memory_batch_size": 128,
+
+  "epsilon": {
+    "type": "linear-decay",
+    "from": 1.0,
+    "to": 0.1,
+    "end_time_percentage": 0.5
+  },
+
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 20,
+      "activation": "tanh"
+    }
+  ],
+
+  "dueling_a_network": [
+    {
+      "name": "dense",
+      "units": 10,
+      "activation": "tanh"
+    }
+  ],
+
+  "dueling_v_network": [
+    {
+      "name": "dense",
+      "units": 10,
+      "activation": "tanh"
+    }
+  ],
+
+  "update_frequency": 4,
+  "steps_before_update": "when-memory-ready",
+  "sync_frequency": 32,
+
+  "optimizer": {
+    "type": "adam",
+    "learning_rate": [0.001, 0.00001],
+    "clip_norm": 40
+  }
+}

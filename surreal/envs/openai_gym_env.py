@@ -30,9 +30,12 @@ class OpenAIGymEnv(Env):
     OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
     def __init__(
-            self, openai_gym_id, actors=None, frame_skip=None, max_num_noops_after_reset=0,
-            noop_action=0, episodic_life=False, lost_life_reward=-1.0,
-            fire_after_reset=False, monitor=None, monitor_safe=False, monitor_video=0,
+            self, openai_gym_id, actors=None, frame_skip=None,
+            max_episode_steps=None,
+            max_num_noops_after_reset=0, noop_action=0,
+            episodic_life=False, lost_life_reward=-1.0,
+            fire_after_reset=False,
+            monitor=None, monitor_safe=False, monitor_video=0,
             force_float32=True, **kwargs
     ):
         """
@@ -97,6 +100,10 @@ class OpenAIGymEnv(Env):
         # Add other gym-envs to our list.
         for _ in range(len(actors) - 1):
             self.gym_envs.append(gym.make(openai_gym_id))
+        # Set max-episode cutoff for all our envs.
+        if max_episode_steps is not None:
+            for i in range(len(actors)):
+                self.gym_envs[i]._max_episode_steps = max_episode_steps
 
         # Buffers for execution returns from gym-envs.
         self.state = np.array([state_space.zeros()] * len(actors))

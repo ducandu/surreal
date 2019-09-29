@@ -14,10 +14,14 @@
 # limitations under the License.
 # ==============================================================================
 
+from collections import namedtuple
 import numpy as np
+import tensorflow as tf
 import unittest
 
-from surreal.algos.dddqn import DDDQNLoss
+from surreal.algos.dddqn import DDDQN, DDDQNConfig, DDDQNLoss
+from surreal.components.preprocessors import Preprocessor
+from surreal.envs import GridWorld
 from surreal.tests.test_util import check
 
 
@@ -26,6 +30,9 @@ class TestDDDQNFunctionality(unittest.TestCase):
     Tests the DDDQN algo functionality (loss functions, execution logic, etc.).
     """
     def test_dddqn_loss_function(self):
+        """
+        Tests the dueling/double q-loss function assuming an n-step of 1.
+        """
         # Batch of size=2.
         input_ = {
             "x": np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
@@ -33,7 +40,8 @@ class TestDDDQNFunctionality(unittest.TestCase):
             "r": np.array([10.3, -4.25]),
             "t": np.array([False, True]),
             # make s' distinguishable from s via its values for the fake q-net to notice.
-            "x_": np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
+            "x_": np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
+            "num_steps": np.array([1, 1])
         }
 
         # Fake q-nets. Just have to be callables.
@@ -65,6 +73,206 @@ class TestDDDQNFunctionality(unittest.TestCase):
         # Expect the mean over the batch.
         expected_loss = 6.6395768744
         expected_td_errors = [4.60333333, 2.317]  # absolute values
-        out = DDDQNLoss()(input_, 0.9, q_net, target_q_net, num_categories=3)
+        out = DDDQNLoss()(input_, q_net, target_q_net, namedtuple("FakeDDDQNConfig", ["gamma"])(gamma=0.9))
         check(out[0].numpy(), expected_loss, decimals=3)
         check(out[1].numpy(), expected_td_errors, decimals=2)
+
+    def test_dddqn_n_step_memory_insertion(self):
+        """
+        Tests the n-step post-processing and memory-insertions of DDQN.
+        """
+        # Create an Env object.
+        env = GridWorld("2x2", actors=1)
+        # Create a very standard DDQN.
+        dqn_config = DDDQNConfig.make(
+            "../configs/dddqn_grid_world_2x2_learning.json",
+            gamma=0.5,  # fix gamma for unique-memory-checks purposes
+            epsilon=[1.0, 0.5],  # fix epsilon to get lots of random actions.
+            preprocessor=Preprocessor(
+                lambda inputs_: tf.one_hot(inputs_, depth=env.actors[0].state_space.num_categories)
+            ),
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space
+        )
+        algo = DDDQN(config=dqn_config, name="my-dddqn")
+        # Point actor(s) to the algo.
+        for actor in env.actors:
+            actor.set_algo(algo)
+
+        # Run for n ticks, then check memory contents for correct n-step tuples.
+        for _ in range(5):
+            env.run(ticks=100, sync=True, render=False)
+            self.check_2x2_grid_world_mem(algo.memory.memory)
+
+    def test_dddqn_n_step_memory_insertion_n_step_samples_only(self):
+        """
+        Tests the n-step post-processing and memory-insertions of DDQN (with the n_step_only option set to True).
+        """
+        # Create an Env object.
+        env = GridWorld("2x2", actors=1)
+        # Create a very standard DDQN.
+        dqn_config = DDDQNConfig.make(
+            "../configs/dddqn_grid_world_2x2_learning.json",
+            n_step_only=True,
+            gamma=0.5,  # fix gamma for unique-memory-checks purposes
+            epsilon=[1.0, 0.5],  # fix epsilon to get lots of random actions.
+            preprocessor=Preprocessor(
+                lambda inputs_: tf.one_hot(inputs_, depth=env.actors[0].state_space.num_categories)
+            ),
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space
+        )
+        algo = DDDQN(config=dqn_config, name="my-dddqn")
+        # Point actor(s) to the algo.
+        for actor in env.actors:
+            actor.set_algo(algo)
+
+        # Run for n ticks, then check memory contents for correct n-step tuples.
+        for _ in range(5):
+            env.run(ticks=100, sync=True, render=False)
+            self.check_2x2_grid_world_mem(algo.memory.memory, n_step_only=True)
+
+    def check_2x2_grid_world_mem(self, memory, n_step_only=False):
+        for m in memory:
+            # s=0 (start state).
+            if m[4][0] == 1.0:
+                # action=up
+                if m[0] == 0:
+                    # 1-step
+                    if m[1] == 1:
+                        if n_step_only:
+                            raise ValueError
+                        self.assertTrue(m[2] == -0.1)  # r
+                        self.assertFalse(m[3])  # t=False
+                        self.assertTrue(m[5][0] == 1.0)  # s'=0
+                    else:
+                        self.assertTrue(m[1] == 2)  # num_steps
+                        # r=-0.1-0.5*0.1 = -0.15 -> check for "stultus currit" (walking around with -0.1 rewards)
+                        if np.allclose(m[2], -0.15):  # 2*-0.1 discuonted
+                            self.assertFalse(m[3])  # we can only assert that episode is still ongoing
+                        # r=-2.6 -> up, then right (death)
+                        elif np.allclose(m[2], -2.6):
+                            self.assertTrue(m[3])  # t=True
+                            self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                        else:
+                            raise ValueError
+                # action=right -> assert death
+                elif m[0] == 1:
+                    self.assertTrue(m[2] == -5.0)  # r
+                    self.assertTrue(m[3])  # t=True
+                    self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                    self.assertTrue(m[1] == 1)  # 1-step tuple
+                # action=down
+                elif m[0] == 2:
+                    # 1-step
+                    if m[1] == 1:
+                        if n_step_only:
+                            raise ValueError
+                        self.assertTrue(m[2] == -0.1)  # r
+                        self.assertFalse(m[3])  # t=False
+                        self.assertTrue(m[5][1] == 1.0)  # s'=1
+                    else:
+                        self.assertTrue(m[1] == 2)  # num_steps
+                        # r=-0.1-0.5*0.1 = -0.15 -> check for "stultus currit" (walking around with -0.1 rewards)
+                        if np.allclose(m[2], -0.15):  # 2*-0.1 discuonted
+                            self.assertFalse(m[3])  # we can only assert that episode is still ongoing
+                        # r=0.4 -> down, then into goal
+                        elif np.allclose(m[2], 0.4):
+                            self.assertTrue(m[3])
+                            self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                        else:
+                            raise ValueError
+                # action=left
+                elif m[0] == 3:
+                    # 1-step
+                    if m[1] == 1:
+                        if n_step_only:
+                            raise ValueError
+                        self.assertTrue(m[2] == -0.1)  # r
+                        self.assertFalse(m[3])  # t=False
+                        self.assertTrue(m[5][0] == 1.0)  # s'=0
+                    else:
+                        self.assertTrue(m[1] == 2)  # num_steps
+                        # r=-0.1-0.5*0.1 = -0.15 -> check for "stultus currit" (walking around with -0.1 rewards)
+                        if np.allclose(m[2], -0.15):  # 2*-0.1 discuonted
+                            self.assertFalse(m[3])  # we can only assert that episode is still ongoing
+                        # r=-2.6 -> left, then into death
+                        elif np.allclose(m[2], -2.6):
+                            self.assertTrue(m[3])
+                            self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                        else:
+                            raise ValueError
+                else:
+                    raise ValueError
+            # s=1
+            elif m[4][1] == 1.0:
+                # action=up
+                if m[0] == 0:
+                    # 1-step
+                    if m[1] == 1:
+                        if n_step_only:
+                            raise ValueError
+                        self.assertTrue(m[2] == -0.1)  # r
+                        self.assertFalse(m[3])  # t=False
+                        self.assertTrue(m[5][0] == 1.0)  # s'=0
+                    else:
+                        self.assertTrue(m[1] == 2)  # num_steps
+                        # r=-0.1-0.5*0.1 = -0.15 -> check for "stultus currit" (walking around with -0.1 rewards)
+                        if np.allclose(m[2], -0.15):  # 2*-0.1 discuonted
+                            self.assertFalse(m[3])  # we can only assert that episode is still ongoing
+                        # r=-2.6 -> up, then into death
+                        elif np.allclose(m[2], -2.6):
+                            self.assertTrue(m[3])
+                            self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                        else:
+                            raise ValueError
+                # action=right -> assert goal
+                elif m[0] == 1:
+                    self.assertTrue(m[2] == 1.0)  # r
+                    self.assertTrue(m[3])  # t=True
+                    self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                    self.assertTrue(m[1] == 1)  # 1-step tuple
+                # action=down
+                elif m[0] == 2:
+                    # 1-step
+                    if m[1] == 1:
+                        if n_step_only:
+                            raise ValueError
+                        self.assertTrue(m[2] == -0.1)  # r
+                        self.assertFalse(m[3])  # t=False
+                        self.assertTrue(m[5][1] == 1.0)  # s'=1
+                    else:
+                        self.assertTrue(m[1] == 2)  # num_steps
+                        # r=-0.1-0.5*0.1 = -0.15 -> check for "stultus currit" (walking around with -0.1 rewards)
+                        if np.allclose(m[2], -0.15):  # 2*-0.1 discuonted
+                            self.assertFalse(m[3])  # we can only assert that episode is still ongoing
+                        # r=0.4 -> down, then into goal
+                        elif np.allclose(m[2], 0.4):
+                            self.assertTrue(m[3])
+                            self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                        else:
+                            raise ValueError
+                # action=left
+                elif m[0] == 3:
+                    # 1-step
+                    if m[1] == 1:
+                        if n_step_only:
+                            raise ValueError
+                        self.assertTrue(m[2] == -0.1)  # r
+                        self.assertFalse(m[3])  # t=False
+                        self.assertTrue(m[5][1] == 1.0)  # s'=1
+                    else:
+                        self.assertTrue(m[1] == 2)  # num_steps
+                        # r=-0.1-0.5*0.1 = -0.15 -> check for "stultus currit" (walking around with -0.1 rewards)
+                        if np.allclose(m[2], -0.15):  # 2*-0.1 discuonted
+                            self.assertFalse(m[3])  # we can only assert that episode is still ongoing
+                        # r=0.4 -> left, then into goal
+                        elif np.allclose(m[2], 0.4):
+                            self.assertTrue(m[3])
+                            self.assertTrue(m[5][0] == 1.0)  # s'=0 (reset-state)
+                        else:
+                            raise ValueError
+                else:
+                    raise ValueError
+            else:
+                raise ValueError

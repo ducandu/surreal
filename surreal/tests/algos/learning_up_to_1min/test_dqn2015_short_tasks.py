@@ -38,7 +38,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         )
         # Create a DQN2015Config.
         dqn_config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_gridworld_2x2_learning.json",
+            "../configs/dqn2015_grid_world_2x2_learning.json",
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
@@ -75,7 +75,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
 
         # Create a DQN2015Config.
         dqn_config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_gridworld_4x4_learning_8_actors.json",
+            "../configs/dqn2015_grid_world_4x4_learning_8_actors.json",
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
@@ -101,13 +101,13 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         self.assertTrue(action_values[0][2] >= 0.0)
         self.assertTrue(action_values[1][2] >= 0.0)
 
-    def test_learning_on_cartpole_with_4_actors(self):
+    def test_learning_on_cart_pole_with_4_actors(self):
         # Create an Env object.
         env = OpenAIGymEnv("CartPole-v0", actors=4)
 
         # Create a DQN2015Config.
         dqn_config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_cartpole_learning_4_actors.json",
+            "../configs/dqn2015_cart_pole_learning_4_actors.json",
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

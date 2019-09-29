@@ -108,4 +108,8 @@ class Memory(Makeable, metaclass=ABCMeta):
             flat_records = [np.array([r]) for r in flat_records]
             num_records = 1
 
+        # Make sure `records` roughly matches our record_space.
+        assert len(flat_records) == len(self.flat_record_space), \
+            "ERROR: Structure of `records` does not seem to match `self.record_space`!"
+
         return num_records, flat_records

@@ -14,7 +14,7 @@
 # ==============================================================================
 
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Conv2D, LSTM  # TODO: support more.
+from tensorflow.keras.layers import Dense, Conv2D, LSTM, Flatten  # TODO: support more.
 
 
 def keras_from_spec(spec):
@@ -23,8 +23,13 @@ def keras_from_spec(spec):
         sequential = tf.keras.models.Sequential()
         for layer in spec:
             name = layer.pop("name").lower()
-            assert name in ["dense", "conv2d", "lstm"]
-            class_ = Dense if name == "dense" else Conv2D if name == "conv2d" else LSTM
+            assert name in ["dense", "conv2d", "flatten", "lstm"]
+            class_ = None
+            for match in [Dense, Conv2D, Flatten, LSTM]:
+                if match.__name__.lower() == name:
+                    class_ = match
+                    break
+            assert class_
             sequential.add(class_.from_config(layer))
         return sequential
 

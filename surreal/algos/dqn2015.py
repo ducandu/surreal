@@ -34,31 +34,29 @@ class DQN2015(RLAlgo):
         self.Phi = Preprocessor.make(config.preprocessor)
         self.x = self.Phi(Space.make(self.config.state_space).with_batch())  # preprocessed states (x)
         self.a = Space.make(self.config.action_space).with_batch()  # actions (a)
-        self.r = Float().with_batch()
-        self.t = Bool().with_batch()
-        self.Q = Network.make(network=config.q_network, output_space=self.a, input_space=self.x)
-        self.Qt = self.Q.copy(trainable=False)
+        self.Q = Network.make(network=config.q_network, output_space=self.a, input_space=self.x)  # Q-network
+        self.Qt = self.Q.copy(trainable=False)  # target Q-network
         self.memory = ReplayBuffer.make(
-            record_space=Dict(dict(x=self.x, a=self.a, r=self.r, x_=self.x, t=self.t)),
+            record_space=Dict(dict(x=self.x, a=self.a, r=float, x_=self.x, t=bool), main_axes="B"),
             capacity=config.memory_capacity
         )
-        self.L = DQN2015Loss()
+        self.L = DQN2015Loss()  # plain Q-loss (quadratic, 1-step TD)
         self.optimizer = Optimizer.make(self.config.optimizer)
-        self.epsilon = Decay.make(self.config.epsilon)
-        self.Phi.reset()
+        self.epsilon = Decay.make(self.config.epsilon)  # for epsilon greedy learning
+        self.Phi.reset()  # make sure, Preprocessor is clean
 
     def event_episode_starts(self, env, time_steps, batch_position, s):
         self.Phi.reset(batch_position)  # Reset Phi at beginning of each episode (only at given batch positions).
 
     # Env tick event -> Act in env and collect samples in replay-buffer.
     def event_tick(self, env, time_steps, batch_positions, r, t, s_):
-        # Update time-percentage value.
+        # Update time-percentage value (for decaying parameters, e.g. learning-rate).
         time_percentage = time_steps / (self.config.max_time_steps or env.max_time_steps)
 
         # Preprocess states.
         x_ = self.Phi(s_)
 
-        # Add sars't-tuples to memory (batched).
+        # Add now-complete sars't-tuple to memory (batched).
         if time_steps > 0:
             self.memory.add_records(dict(x=self.x.value, a=self.a.value, r=r, x_=x_, t=t))
 
@@ -76,45 +74,46 @@ class DQN2015(RLAlgo):
             weights = self.Q.get_weights(as_ref=True)
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 tape.watch(weights)  # Only watch main Q-weights, not the target weights.
-                L = self.L(self.memory.get_records(self.config.memory_batch_size), self.config.gamma, self.Q, self.Qt)
+                L = self.L(self.memory.get_records(self.config.memory_batch_size), self.Q, self.Qt, self.config)
                 self.optimizer.apply_gradients(list(zip(tape.gradient(L, weights), weights)), time_percentage)
 
         # Every mth tick event -> Synchronize target Q-net.
         if env.tick % (int(self.config.sync_frequency / len(batch_positions)) or 1) == 0:
             self.Qt.sync_from(self.Q)
 
-        # Store actions and states for next tick.
+        # Store actions and states for next tick (they form the incomplete next sars't-tuple).
         self.x.assign(x_)
         self.a.assign(a_)
 
 
 class DQN2015Loss(LossFunction):
     """
-    The DQN2015 loss function:
+    The DQN2015 loss function (expected (over some batch) quadratic, 1-step TD loss):
 
-    L = E[(TDtarget(s') - Q(s,a)) ** 2]
+    L = E[(TDtarget(s') - Q(s,a))²]
 
     Where:
         E = expectation over some uniform memory batch.
         TDtarget(s') = r + γ max a' (Qt(s'))
-        Qt = target Q-network (synchronized every n time steps, where n >> Q update frequency).
+        Qt = target Q-network (synchronized every m time steps, where m >> Q update frequency).
+        γ = discount factor
     """
-    def call(self, samples, gamma, q_net, target_q_net):
+    def call(self, samples, q_net, target_q_net, config):
         """
         Args:
             samples (Dict[states,actions,rewards,next-states,terminals]): The batch to push through the loss function
                 to get an expectation value (mean over all batch items).
 
-            gamma (float): The discount factor (gamma).
             q_net (Network): The Q-network.
             target_q_net (Network): The target Q-network.
+            config (DDDQNConfig): A DQN2015Config object, of which this LossFunction uses some properties.
 
         Returns:
             tf.Tensor: The single loss value (0D). See formula above.
         """
         x, a, r, x_, t = samples["x"], samples["a"], samples["r"], samples["x_"], samples["t"]
         target_q_xp_ap = tf.reduce_max(target_q_net(x_), axis=-1)  # max a'(target-q(x',a'))
-        td_targets = r + gamma * tf.where(t, tf.zeros_like(target_q_xp_ap), target_q_xp_ap)
+        td_targets = r + config.gamma * tf.where(t, tf.zeros_like(target_q_xp_ap), target_q_xp_ap)
         return 0.5 * tf.reduce_mean((td_targets - q_net(x, a)) ** 2)
 
 

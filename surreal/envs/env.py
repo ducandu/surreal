@@ -30,7 +30,7 @@ class Env(Makeable, metaclass=ABCMeta):
     """
     An Env class used to run experiment-based RL.
     """
-    def __init__(self, actors=None, render=False):
+    def __init__(self, actors=None, render=False, action_map=None):
         """
         Args:
             actors (Union[int,List[Actor]]): The number of Actors to create and add to this env or a list of
@@ -38,11 +38,18 @@ class Env(Makeable, metaclass=ABCMeta):
 
             render: If set True, the program will visualize the trainings of gym's environment. Note that such
                 visualization is probably going to slow down the training.
+
+            action_map (Optional[callable): An optional callable taking `actions` as inputs to enable e.g. discrete
+                learning in continuous envs or vice-versa. The callable must output the mapped actions, ready to be
+                applied in the underlying env.
         """
-        super(Env, self).__init__()
+        super().__init__()
 
         # Our actors.
         self.actors = actors or []
+
+        # The action map (if any).
+        self.action_map = action_map
 
         # Global tick counter. Per env tick (for all actors).
         self.tick = 0
@@ -124,7 +131,8 @@ class Env(Makeable, metaclass=ABCMeta):
             ticks (Optional[int]): The number of time steps (ticks) to run for.
         """
         # Set max-time-steps.
-        self.max_ticks = actor_time_steps / len(self.actors) if actor_time_steps is not None else (ticks or float("inf"))
+        self.max_ticks = (actor_time_steps / len(self.actors)) if actor_time_steps is not None else \
+            (ticks or float("inf"))
         self.max_time_steps = self.max_ticks * len(self.actors)
 
         # Build a algo-map for faster non-repetitive lookup.
@@ -159,11 +167,15 @@ class Env(Makeable, metaclass=ABCMeta):
 
                             # Log stats sometimes.
                             if slot == 0:
-                                print("Tick={} (x{} Actors); Avg episode len ~ {}; Average R ~ {:.4f}".format(
-                                    self.tick, len(self.actors),
-                                    int(np.mean(self.historic_episodes_lengths[-len(self.actors):])),
-                                    np.mean(self.historic_episodes_returns[-len(self.actors):])
-                                ))
+                                print(
+                                    "Tick={} (x{} Actors); Episodes done: {}; "
+                                    "Avg episode len ~ {}; Avg R ~ {:.4f}".format(
+                                        self.tick, len(self.actors),
+                                        self.num_episodes,
+                                        int(np.mean(self.historic_episodes_lengths[-len(self.actors):])),
+                                        np.mean(self.historic_episodes_returns[-len(self.actors):])
+                                    )
+                                )
 
                         # Reset episode stats.
                         self.episodes_time_steps[slot] = 0
@@ -200,9 +212,14 @@ class Env(Makeable, metaclass=ABCMeta):
             # Single episode (per actor) time_steps.
             self.episodes_time_steps += 1
 
+        # Done with the run.
+        self.running = False
+
+        # Interrupted.
         if tick < self.max_ticks:
             # TODO: What if paused, may one resume?
             print("Run paused at tick {}.".format(tick))
+        # Cleanly finished run.
         else:
             print("Run done after {} ticks.".format(tick))
 
@@ -228,6 +245,11 @@ class Env(Makeable, metaclass=ABCMeta):
         if self.debug_store_episode is not False:
             episode, slot = self.debug_store_episode
             s = self.state[slot].copy()
+
+        # Action translations?
+        if self.action_map is not None:
+            actions = self.action_map(actions)
+            #print(actions)
 
         # Call main action handler.
         self._act(actions)

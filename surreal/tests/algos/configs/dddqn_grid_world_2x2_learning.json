@@ -1,15 +1,17 @@
 {
-  "gamma": 1.0,
+  "gamma": 0.99,
 
-  "memory_capacity": 64,
-  "memory_batch_size": 24,
+  "n_step": 2,
+
+  "memory_capacity": 512,
+  "memory_batch_size": 64,
 
   "epsilon": [1.0, 0.0],
 
   "q_network": [
     {
       "name": "dense",
-      "units": 10,
+      "units": 5,
       "activation": "linear"
     }
   ],
@@ -17,23 +19,23 @@
   "dueling_v_network": [
     {
       "name": "dense",
-      "units": 10
+      "units": 5
     }
   ],
 
   "dueling_a_network": [
     {
       "name": "dense",
-      "units": 10
+      "units": 5
     }
   ],
 
   "update_frequency": 4,
-  "steps_before_update": "when-memory-full",
-  "sync_frequency": 8,
+  "steps_before_update": "when-memory-ready",
+  "sync_frequency": 16,
 
   "optimizer": {
     "type": "adam",
-    "learning_rate": 0.005
+    "learning_rate": 0.002
   }
 }

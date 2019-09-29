@@ -39,9 +39,6 @@ class ReplayBuffer(Memory):
 
     def add_records(self, records, single=False):
         num_records, flat_records = self.get_number_and_flatten_records(records, single)
-        # Make sure records roughly matches our memory.
-        assert len(flat_records) == len(self.memory)
-
         update_indices = np.arange(self.index, self.index + num_records) % self.capacity
         for i in range(len(self.memory)):
             for j, k in enumerate(update_indices):

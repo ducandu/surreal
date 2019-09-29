@@ -26,9 +26,39 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
     """
     Tests the DDDQN algo on up-to-1-hour learning problems.
     """
-    def test_learning_on_lunar_lander_with_8_actors(self):
+    def test_learning_on_mountain_car_4_actors(self):
+        # Note: MountainCar is tricky as per its reward function: Hence, we need a quite large episode
+        # cutoff to solve it with ease.
+        # With a large enough n-step, the algo should be able to learn the env very quickly after having solved
+        # it once via randomness.
+        env = OpenAIGymEnv("MountainCar-v0", actors=4, max_episode_steps=5000)
+
+        # Create a DQN2015Config.
+        dqn_config = DDDQNConfig.make(
+            "../configs/dddqn_mountain_car_learning_4_actors.json",  # TODO: filename wrong (num actors)
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space
+        )
+
+        # Create an Algo object.
+        algo = DDDQN(config=dqn_config, name="my-dqn")
+
+        # Point actor(s) to the algo.
+        for actor in env.actors:
+            actor.set_algo(algo)
+
+        # Run and wait for env to complete.
+        env.run(ticks=7000, sync=True, render=debug.RenderEnvInLearningTests)
+
+        # Check last n episode returns.
+        last_n = 10
+        mean_last_episodes = np.mean(env.historic_episodes_returns[-last_n:])
+        print("Avg return over last {} episodes: {}".format(last_n, mean_last_episodes))
+        self.assertTrue(mean_last_episodes > -200.0)
+
+    def test_learning_on_lunar_lander_with_4_actors(self):
         # Create an Env object.
-        env = OpenAIGymEnv("LunarLander-v2", actors=8)
+        env = OpenAIGymEnv("LunarLander-v2", actors=4)
 
         # Create a DQN2015Config.
         config = DDDQNConfig.make(
@@ -45,9 +75,9 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
             actor.set_algo(algo)
 
         # Run and wait for env to complete.
-        env.run(ticks=50000, sync=True, render=debug.RenderEnvInLearningTests)
+        env.run(ticks=30000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
         mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 > 100.0)
+        self.assertTrue(mean_last_10 > 150.0)

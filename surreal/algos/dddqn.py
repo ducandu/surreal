@@ -14,6 +14,7 @@
 # ==============================================================================
 
 from collections import deque
+import copy
 import numpy as np
 from random import random
 import tensorflow as tf
@@ -40,8 +41,6 @@ class DDDQN(RLAlgo):
         self.Phi = Preprocessor.make(config.preprocessor)
         self.x = self.Phi(Space.make(self.config.state_space).with_batch())  # preprocessed states (x)
         self.a = Space.make(self.config.action_space).with_batch()  # actions (a)
-        self.r = Float().with_batch()
-        self.t = Bool().with_batch()
         self.Q = Network.make(
             network=config.q_network, input_space=self.x,
             output_space=Dict(A=self.a, V=Float().with_batch()),  # dueling network outputs
@@ -49,31 +48,31 @@ class DDDQN(RLAlgo):
         )
         self.Qt = self.Q.copy(trainable=False)
         self.memory = PrioritizedReplayBuffer.make(
-            record_space=Dict(dict(x=self.x, a=self.a, r=self.r, x_=self.x, t=self.t, num_steps=Int().with_batch())),
+            record_space=Dict(dict(x=self.x, a=self.a, r=float, x_=self.x, t=bool, num_steps=int), main_axes="B"),
             capacity=config.memory_capacity, alpha=config.memory_alpha, beta=config.memory_beta
         )
         self.queue = deque([], maxlen=config.n_step)  # Our n-step buffer.
-        self.queue_index = -1
-        self.L = DDDQNLoss()
+        self.L = DDDQNLoss()  # double/dueling/n-step Q-loss
         self.optimizer = Optimizer.make(self.config.optimizer)
-        self.epsilon = Decay.make(self.config.epsilon)
-        self.Phi.reset()
+        self.epsilon = Decay.make(self.config.epsilon)  # for epsilon greedy learning
+        self.Phi.reset()  # make sure, Preprocessor is clean
 
     def event_episode_starts(self, env, time_steps, batch_position, s):
         # Reset Phi at beginning of each episode (only at given batch positions).
         self.Phi.reset(batch_position)
 
     def event_tick(self, env, time_steps, batch_positions, r, t, s_):
-        # Update time-percentage value.
+        # Update time-percentage value (for decaying parameters, e.g. learning-rate).
         time_percentage = time_steps / (self.config.max_time_steps or env.max_time_steps)
 
         # Preprocess states.
         x_ = self.Phi(s_)
 
-        # Add sars't-tuples to memory (batched).
+        # Add now-complete sars't-tuple to memory (batched).
         if time_steps > 0:
-            records = self.n_step()
-            self.memory.add_records(dict(x=self.x.value, a=self.a.value, r=r, x_=x_, t=t))
+            records = self.n_step(self.x.value, self.a.value, r, t, x_)
+            if records:
+                self.memory.add_records(records)
 
         # Handle ε-greedy exploration (should an ε case always be across the entire batch?).
         if random() > self.epsilon(time_percentage):
@@ -99,16 +98,65 @@ class DDDQN(RLAlgo):
         if env.tick % (int(self.config.sync_frequency / len(batch_positions)) or 1) == 0:
             self.Qt.sync_from(self.Q)
 
-        # Store sars't-tuple in deque for n-step estimation.
-        self.queue.append([x_, a_, ])
-        #self.x.assign(x_)
-        #self.a.assign(a_)
+        # Store actions and states for next tick (they form the incomplete next sars't-tuple).
+        self.x.assign(x_)
+        self.a.assign(a_)
 
-    def n_step(self):
-        pass
+    def n_step(self, x, a, r, t, x_):
+        self.queue.append(dict(x=x, a=a, r=r, t=t))
+        records = {"x": [], "a": [], "r": [], "t": [], "x_": [], "n": []}
+        if isinstance(x_, tf.Tensor):
+            x_ = x_.numpy()
+        else:
+            x_ = copy.deepcopy(x_)
+        if isinstance(t, tf.Tensor):
+            t = t.numpy()
+        else:
+            t = copy.deepcopy(t)
+        #num_steps_list = []
+        batch_size = t.shape[0]
+        r_sum = 0.0
+        num_steps = np.array([1] * batch_size)
+        # N-step loop (moving back in deque).
+        for i in reversed(range(len(self.queue))):
+            record = self.queue[i]
+            # Add up rewards as we move back.
+            r_sum += record["r"]
+
+            # Batch loop.
+            for batch_index in range(batch_size):
+                # Reached n-steps OR a terminal (s' at i is already a reset-state (first one in episode)).
+                if i == 0 or self.queue[i-1]["t"][batch_index]:
+                    # Do not include samples smaller than n-steps w/o a terminal.
+                    if self.config.n_step_only is False or num_steps[batch_index] == self.config.n_step or t[batch_index]:
+                        # Add done n-step record to our records.
+                        records["x"].append(record["x"][batch_index])
+                        records["a"].append(record["a"][batch_index])
+                        records["r"].append(r_sum[batch_index])
+                        records["t"].append(t[batch_index])
+                        records["x_"].append(x_[batch_index])
+                        records["n"].append(num_steps[batch_index])
+                    #if record["x"][batch_index][0] == 1.0 and record["a"][batch_index] == 2 and num_steps[batch_index] == 1 and r_sum[batch_index] == -0.1 and t[batch_index]:
+                    #    print("here")
+                    if i > 0 and self.queue[i-1]["t"][batch_index]:
+                        r_sum[batch_index] = 0.0
+                        num_steps[batch_index] = 0
+                        x_[batch_index] = record["x"][batch_index]  # the reset-state
+                        t[batch_index] = True
+
+            # Keep multiplying by discount factor.
+            r_sum *= self.config.gamma
+            num_steps += 1
+
+        # Return all records (non-horizontally).
+        if len(records["x"]) > 0:
+            return dict(
+                x=np.array(records["x"]), a=np.array(records["a"]), r=np.array(records["r"]),
+                t=np.array(records["t"]), x_=np.array(records["x_"]), num_steps=np.array(records["n"])
+            )
 
 
-def dueling(output, a, num_actions):
+def dueling(output, a):
     """
     Dueling layer logic (output is split between advantage nodes and single value node), then
     combined as:
@@ -123,20 +171,22 @@ def dueling(output, a, num_actions):
         any: The q-value for the given action using the NN's dueling output (advantages and single value outputs).
     """
     q_values = output["V"] + tf.gather_nd(output["A"], tf.reshape(a, (-1, 1)), batch_dims=1) - \
-               (tf.reduce_sum(output["A"], axis=-1) / num_actions)
+               (tf.reduce_sum(output["A"], axis=-1) / output["A"].shape[-1])  # -1: last dim of a == |A|
     return q_values
 
 
 class DDDQNLoss(LossFunction):
     """
-    The DDDQN loss function (double-Q learning loss):
+    The DDDQN loss function (expected (over some batch) dueling/double-Q/n-step TD learning loss):
 
-    L = E[(TDtarget(s') - Q(s,a)) ** 2]
+    L = E[(TDtarget(s') - Q(s,a))²]
 
     Where:
-        E = expectation over some uniform memory batch.
-        TDtarget(s') = r + γ Qt(s', argmax a'(Q(s')))
-        Qt = target Q-network (synchronized every n time steps, where n >> Q update frequency).
+        E = expectation over a prioritized(!) memory batch. Prioritization according to previous abs(TD-error) terms.
+        TDtarget(s') = r0 + γr1 + γ²*r2 + ... + γ^n Qt(s', argmax a' Q(s',a'))
+        s' = state after n-steps.
+        Qt = target Q-network (synchronized every m time steps, where m >> Q update frequency).
+        γ = discount factor
     """
     def call(self, samples, q_net, target_q_net, config):
         """
@@ -153,12 +203,12 @@ class DDDQNLoss(LossFunction):
                 tf.Tensor: The single loss value (0D). See formula above.
                 tf.Tensor: The (already abs'd) TD-errors, e.g. useful as weights in a prioritized replay buffer.
         """
-        x, a, r, x_, t = samples["x"], samples["a"], samples["r"], samples["x_"], samples["t"]
+        x, a, r, x_, t, n = samples["x"], samples["a"], samples["r"], samples["x_"], samples["t"], samples["num_steps"]
         # "A" -> advantage values (for argmax, this is the same as argmaxing over the Q-values).
         a_ = tf.argmax(q_net(x_)["A"], axis=-1, output_type=tf.int32)  # argmax a' (Q(s'))
-        target_q_xp_ap = dueling(target_q_net(x_), a_, config.action_space.num_categories)  # Qt(s',a')
-        td_targets = r + (config.gamma ** config.n_step) * tf.where(t, tf.zeros_like(target_q_xp_ap), target_q_xp_ap)
-        td_errors = td_targets - dueling(q_net(x), a, config.action_space.num_categories)  # Q(s,a)
+        target_q_xp_ap = dueling(target_q_net(x_), a_)  # Qt(s',a')
+        td_targets = r + (config.gamma ** n) * tf.where(t, tf.zeros_like(target_q_xp_ap), target_q_xp_ap)
+        td_errors = td_targets - dueling(q_net(x), a)  # Q(s,a)
         return 0.5 * tf.reduce_mean(td_errors ** 2), tf.abs(td_errors)
 
 
@@ -173,7 +223,7 @@ class DDDQNConfig(Config):
             preprocessor=None,
             gamma=0.99, epsilon=(1.0, 0.0),
             memory_capacity=10000, memory_alpha=1.0, memory_beta=0.0, memory_batch_size=512,
-            n_step=1,
+            n_step=1, n_step_only=True,
             max_time_steps=None, update_frequency=16, steps_before_update=0, sync_frequency=4
     ):
         """
@@ -194,6 +244,9 @@ class DDDQNConfig(Config):
 
             n_step (int): How many steps to "look ahead" in an n-step discounted Q-learning setup.
                 "Normal" Q-learning or TD(0) has `n_step` of 1.
+
+            n_step_only (bool): Whether to exclude samples that are shorter than `n_step` AND don't have a terminal
+                at the end.
 
             max_time_steps (Optional[int]): The maximum number of time steps (across all actors) to learn/update.
                 If None, use a value given by the environment.

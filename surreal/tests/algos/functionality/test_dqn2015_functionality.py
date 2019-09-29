@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from collections import namedtuple
 import copy
 import numpy as np
 import tensorflow as tf
@@ -63,7 +64,7 @@ class TestDQN2015Functionality(unittest.TestCase):
         expected_loss_per_item = np.array([64.979996, 6235.09445], dtype=np.float32)
         # Expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
-        out = DQN2015Loss()(input_, 1.0, q_net, target_q_net)
+        out = DQN2015Loss()(input_, q_net, target_q_net, namedtuple("FakeDQN2015Config", ["gamma"])(gamma=1.0))
         check(out.numpy(), expected_loss, decimals=2)
 
     def test_dqn2015_functionality(self):
@@ -91,8 +92,8 @@ class TestDQN2015Functionality(unittest.TestCase):
         q_network = K.Model(inputs=i, outputs=o)
 
         # Create a very simple DQN2015.
-        dqn = DQN2015(config=DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_gridworld_2x2_functionality.json",
+        dqn = DQN2015(config=DQN2015Config.make(
+            "../configs/dqn2015_grid_world_2x2_functionality.json",
             preprocessor=preprocessor,
             q_network=q_network,
             state_space=state_space,
@@ -158,12 +159,12 @@ class TestDQN2015Functionality(unittest.TestCase):
         check(dqn.a.value, expected_action)
 
         # Check new weight values after the update.
-        loss = DQN2015Loss()(dqn.memory.last_records_pulled, dqn.config.gamma, q, qt)
+        loss = DQN2015Loss()(dqn.memory.last_records_pulled, q, qt, dqn.config)
         for i, matrix in enumerate(weights_q_before_update):
             for idx in np.ndindex(matrix.shape):
                 weights_q = copy.deepcopy(weights_q_before_update)
                 weights_q[i][idx] += 0.0001
-                lossd = DQN2015Loss()(dqn.memory.last_records_pulled, dqn.config.gamma, q, qt)
+                lossd = DQN2015Loss()(dqn.memory.last_records_pulled, q, qt, dqn.config)
                 dL_over_dw = (lossd - loss) / 0.0001
                 check(weights_q_after_update[i][idx], weights_q_before_update[i][idx] - dL_over_dw * dqn.optimizer.learning_rate(0.0), decimals=4)
 

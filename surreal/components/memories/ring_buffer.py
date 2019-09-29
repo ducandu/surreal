@@ -32,7 +32,7 @@ class RingBuffer(Memory):
             terminal_key (str): The name of the terminal indicator in the record Space. The record Space (a Dict) must
                 have this key in the top-level.
         """
-        super(RingBuffer, self).__init__(record_space, capacity)
+        super().__init__(record_space, capacity)
 
         assert isinstance(self.record_space, Dict), "ERROR: RingBuffer requires Dict as `record_space`!"
         assert terminal_key in self.record_space, \

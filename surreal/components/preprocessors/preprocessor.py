@@ -81,7 +81,7 @@ class Preprocessor(Makeable):
         """
         # Store the preprocessing?
         if StorePreprocessingEveryNCalls and self.num_calls % StorePreprocessingEveryNCalls == 0:
-            Preprocessor._debug_store(PATH_PREPROCESSING_LOGS + "pp_{:03d}_0".format(self.num_calls), inputs)
+            Preprocessor._debug_store(PATH_PREPROCESSING_LOGS + "pp_{:03d}_{:02d}".format(self.num_calls, 0), inputs)
 
         i = inputs
         for j, c in enumerate(self.components):
@@ -90,7 +90,7 @@ class Preprocessor(Makeable):
                     StorePreprocessingOnlyForFirstNPreprocessorComponents is False or
                     j < StorePreprocessingOnlyForFirstNPreprocessorComponents
             ):
-                Preprocessor._debug_store(PATH_PREPROCESSING_LOGS + "pp_{:002d}_{}".format(self.num_calls, j+1), i)
+                Preprocessor._debug_store(PATH_PREPROCESSING_LOGS + "pp_{:03d}_{:02d}".format(self.num_calls, j+1), i)
         return i
 
     @staticmethod

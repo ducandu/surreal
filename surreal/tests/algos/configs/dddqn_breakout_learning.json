@@ -3,26 +3,43 @@
 
   "n_step": 4,
 
-  "memory_capacity": 100000,
+  "memory_capacity": 75000,
   "memory_batch_size": 256,
 
   "epsilon": {
     "type": "linear-decay",
     "from": 1.0,
-    "to": 0.0,
-    "end_time_percentage": 0.9
+    "to": 0.1,
+    "end_time_percentage": 0.1
   },
 
   "q_network": [
     {
-      "name": "dense",
-      "units": 512,
+      "name": "conv2d",
+      "filters": 16,
+      "kernel_size": 8,
+      "strides": 4,
+      "padding": "same",
       "activation": "relu"
     },
     {
-      "name": "dense",
-      "units": 512,
+      "name": "conv2d",
+      "filters": 32,
+      "kernel_size": 4,
+      "strides": 2,
+      "padding": "same",
       "activation": "relu"
+    },
+    {
+      "name": "conv2d",
+      "filters": 256,
+      "kernel_size": 11,
+      "strides": 1,
+      "padding": "valid",
+      "activation": "relu"
+    },
+    {
+      "name": "flatten"
     },
     {
       "name": "dense",
@@ -34,7 +51,7 @@
   "dueling_a_network": [
     {
       "name": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "relu"
     }
   ],
@@ -42,14 +59,14 @@
   "dueling_v_network": [
     {
       "name": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "relu"
     }
   ],
 
-  "update_frequency": 4,
+  "update_frequency": 32,
   "steps_before_update": "when-memory-ready",
-  "sync_frequency": 128,
+  "sync_frequency": 10000,
 
   "optimizer": {
     "type": "adam",

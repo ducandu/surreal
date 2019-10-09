@@ -20,7 +20,8 @@ import tensorflow as tf
 from surreal.components.networks.network import Network
 from surreal.spaces import *
 from surreal.tests import check
-from surreal.utils.numpy import dense, one_hot, softmax
+from surreal.utils.errors import SurrealError
+from surreal.utils.numpy import dense, one_hot, softmax, relu
 
 
 class TestNetworks(unittest.TestCase):
@@ -316,12 +317,85 @@ class TestNetworks(unittest.TestCase):
         check(result["A"], expected_a, decimals=5)
         check(result["V"], expected_v, decimals=5)
 
+    def test_func_api_network_with_manually_handling_container_input_space(self):
+        # Simple vector plus image as inputs (see e.g. SAC).
+        input_space = Dict(A=Float(-1.0, 1.0, shape=(2,)), B=Float(-1.0, 1.0, shape=(2, 2, 3)), main_axes="B")
+        output_space = Float(shape=(3,), main_axes="B")  # simple output
+
+        # Using keras functional API to create network.
+        keras_input = input_space.create_keras_input()
+        # Simply flatten an concat everything, then output.
+        o = tf.keras.layers.Flatten()(keras_input["B"])
+        o = tf.concat([keras_input["A"], o], axis=-1)
+        network = tf.keras.Model(inputs=keras_input, outputs=o)
+
+        # Use no distributions.
+        nn = Network(
+            network=network,
+            output_space=output_space,
+            distributions=False
+        )
+
+        # Simple function call.
+        input_ = input_space.sample(6)
+        result = nn(input_)
+        weights = nn.get_weights()
+        expected = dense(np.concatenate([input_["A"], np.reshape(input_["B"], newshape=(6, -1))], axis=-1), weights[0], weights[1])
+
+        check(result, expected)
+
+        # Function call with value -> Expect error as we only have float outputs (w/o distributions).
+        input_ = input_space.sample(6)
+        values = output_space.sample(6)
+        error = True
+        try:
+            nn(input_, values)
+            error = False
+        except SurrealError:
+            pass
+        self.assertTrue(error)
+
+    def test_func_api_network_with_automatically_handling_container_input_space(self):
+        # Simple vectors plus image as inputs (see e.g. SAC).
+        input_space = Dict(A=Float(-1.0, 1.0, shape=(2,)), B=Int(5), C=Float(-1.0, 1.0, shape=(2, 2, 3)), main_axes="B")
+        output_space = Float(shape=(3,), main_axes="B")  # simple output
+
+        # Only define a base-core network and let the automation handle the complex input structure via
+        # `pre-concat` nets.
+        core_nn = tf.keras.models.Sequential()
+        core_nn.add(tf.keras.layers.Dense(3, activation="relu"))
+        core_nn.add(tf.keras.layers.Dense(3))
+
+        # Use no distributions.
+        nn = Network(
+            network=core_nn,
+            input_space=input_space,
+            pre_concat_networks=dict(
+                # leave "A" out -> "A" input will go unaltered into concat step.
+                B=lambda i: tf.one_hot(i, depth=input_space["B"].num_categories, axis=-1),
+                C=tf.keras.layers.Flatten()
+            ),
+            output_space=output_space,
+            distributions=False
+        )
+
+        # Simple function call.
+        input_ = input_space.sample(6)
+        result = nn(input_)
+        weights = nn.get_weights()
+        expected = dense(dense(relu(dense(np.concatenate([
+            input_["A"],
+            one_hot(input_["B"], depth=input_space["B"].num_categories),
+            np.reshape(input_["C"], newshape=(6, -1))
+        ], axis=-1), weights[0], weights[1])), weights[2], weights[3]), weights[4], weights[5])
+
+        check(result, expected)
+
     def test_copying_a_network(self):
         # Using keras layer as network spec.
         layer = tf.keras.layers.Dense(4)
 
-        nn = Network(network=layer, output_space=Dict({"a": Float(shape=(2,)), "b": Int(2)})
-        )
+        nn = Network(network=layer, output_space=Dict({"a": Float(shape=(2,)), "b": Int(2)}))
         # Simple call -> Should return dict with "a"->float(2,) and "b"->float(2,)
         input_ = Float(-1.0, 1.0, shape=(5,), main_axes="B").sample(5)
         _ = nn(input_)

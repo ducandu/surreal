@@ -15,4 +15,8 @@
 
 from surreal.components.networks.network import Network
 
+Network.__lookup_classes__ = dict(
+    network=Network
+)
+
 __all__ = ["Network"]

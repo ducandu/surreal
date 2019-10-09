@@ -20,7 +20,7 @@
   ],
 
   "update_frequency": 8,
-  "steps_before_update": "when-memory-full",
+  "update_after": "when-memory-full",
   "sync_frequency": 64,
 
   "optimizer": {

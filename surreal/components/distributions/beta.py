@@ -35,14 +35,6 @@ class Beta(Distribution):
         self.low = low
         self.high = high
 
-    #def check_input_spaces(self, input_spaces, action_space=None):
-    #    # Must be a Tuple of len 2 (alpha and beta).
-    #    in_space = input_spaces["parameters"]
-    #    sanity_check_space(in_space, allowed_types=[Tuple])
-    #    assert len(in_space) == 2, "ERROR: Expected Tuple of len=2 as input Space to Beta!"
-    #    sanity_check_space(in_space[0], allowed_types=[Float])
-    #    sanity_check_space(in_space[1], allowed_types=[Float])
-
     def parameterize_distribution(self, parameters):
         """
         Args:
@@ -55,8 +47,8 @@ class Beta(Distribution):
         mean = distribution.mean()
         return self._squash(mean)
 
-    def _sample_stochastic(self, distribution):
-        raw_values = super(Beta, self)._sample_stochastic(distribution)
+    def _sample_stochastic(self, distribution, seed=None):
+        raw_values = super(Beta, self)._sample_stochastic(distribution, seed)
         return self._squash(raw_values)
 
     def _log_prob(self, distribution, values):

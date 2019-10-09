@@ -23,7 +23,7 @@ from surreal.components.preprocessors.image_resize import ImageResize
 from surreal.components.preprocessors.image_crop import ImageCrop
 from surreal.components.preprocessors.preprocessor import Preprocessor
 from surreal.components.preprocessors.sequence import Sequence
-from surreal.spaces import Int
+from surreal.spaces import Dict, Int
 from surreal.tests.test_util import check
 
 
@@ -165,10 +165,11 @@ class TestPreprocessors(unittest.TestCase):
             check(out, expected)
 
     def test_preprocessor_stack_with_non_batched_images(self):
+        # Try some dict-specs as well.
         preprocessor = Preprocessor(
-            GrayScale(keepdims=True),
+            {"type": "gray-scale", "keepdims": True},
             ImageCrop(x=7, y=1, width=8, height=12),
-            ImageResize(width=4, height=4, interpolation="bilinear"),
+            {"type": "image__resize", "width": 4, "height": 4, "interpolation": "bilinear"},
             Sequence(sequence_length=4, adddim=True)
         )
         preprocessor.reset()
@@ -274,3 +275,20 @@ class TestPreprocessors(unittest.TestCase):
             except AssertionError:
                 got_here = True
             self.assertTrue(got_here)
+
+    def test_preprocessor_stack_with_nested_dict_inputs(self):
+        input_space = Dict(A=float, B=dict(B1=float, B2=float), main_axes="B")
+        preprocessor = Preprocessor(
+            dict(A=lambda i: i * 3, B=dict(B1=lambda i: i * 4, B2=lambda i: i * 5)),
+            lambda i: i["A"] * 2 + i["B"]["B1"] * 3
+        )
+
+        for _ in range(5):
+            preprocessor.reset()
+
+            # Some varying batch of inputs.
+            input_ = input_space.sample(np.random.randint(1, 5))
+
+            expected = input_["A"] * 3 * 2 + input_["B"]["B1"] * 4 * 3
+            out = preprocessor(input_)
+            check(out, expected)

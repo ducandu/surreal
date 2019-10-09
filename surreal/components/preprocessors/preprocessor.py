@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import cv2
+import tensorflow as tf
 
 from surreal import PATH_PREPROCESSING_LOGS
 from surreal.debug import StorePreprocessingEveryNCalls, StorePreprocessingOnlyForFirstNPreprocessorComponents
@@ -26,22 +27,33 @@ class Preprocessor(Makeable):
     """
     A generic preprocessor holding other Preprocessors that are called (or reset) one after the other.
     """
-    def __init__(self, *components):
+    def __init__(self, *components, **dict_components):
         """
         Args:
             components: The single preprocessors to stack up.
         """
+        # Make sure preprocessor is either only defined via (sequential) components list or (horizontal) dict.
+        assert not dict_components or len(components) == 0
+
         # In case a list is given.
         if len(components) == 1 and isinstance(components[0], list):
             components = components[0]
-        self.components = components
+
+        if dict_components:
+            self.components = [tf.nest.flatten(tf.nest.map_structure(lambda c: Preprocessor.make(c) if not callable(c) else c, dict_components))]
+            #self.components = [tf.nest.flatten(tf.nest.map_structure(lambda c: Preprocessor.make(c), dict_components))]
+        else:
+            self.components = [Preprocessor.make(c) if not callable(c) else c for c in components]
+            #self.components = [Preprocessor.make(c) for c in components]
 
         self.has_state = any(hasattr(c, "has_state") and c.has_state is True for c in self.components)
 
         # Simple counter of how many times we have been called.
         self.num_calls = 0
 
-        assert all(callable(c) for c in self.components), "ERROR: All components of a Preprocessor must be callable!"
+        # Make sure everything is ok.
+        assert all(callable(c) or isinstance(c, list) and all(callable(sc) for sc in c) for c in self.components), \
+            "ERROR: All components (and dict sub-components) of a Preprocessor must be callable!"
 
     def reset(self, batch_position=None):
         """
@@ -83,15 +95,26 @@ class Preprocessor(Makeable):
         if StorePreprocessingEveryNCalls and self.num_calls % StorePreprocessingEveryNCalls == 0:
             Preprocessor._debug_store(PATH_PREPROCESSING_LOGS + "pp_{:03d}_{:02d}".format(self.num_calls, 0), inputs)
 
-        i = inputs
-        for j, c in enumerate(self.components):
-            i = c(i)
+        in_ = inputs
+        for i, c in enumerate(self.components):
+            # A flattened dict-preprocessor.
+            if isinstance(c, list):
+                assert isinstance(in_, dict)
+                in_flattened = tf.nest.flatten(in_)
+                for j, sub_component in enumerate(c):
+                    if sub_component is not None:
+                        in_flattened[j] = sub_component(in_flattened[j])
+                in_ = tf.nest.pack_sequence_as(in_, in_flattened)
+            # A single preprocessor.
+            else:
+                in_ = c(in_)
+
             if StorePreprocessingEveryNCalls and self.num_calls % StorePreprocessingEveryNCalls == 0 and (
                     StorePreprocessingOnlyForFirstNPreprocessorComponents is False or
-                    j < StorePreprocessingOnlyForFirstNPreprocessorComponents
+                    i < StorePreprocessingOnlyForFirstNPreprocessorComponents
             ):
-                Preprocessor._debug_store(PATH_PREPROCESSING_LOGS + "pp_{:03d}_{:02d}".format(self.num_calls, j+1), i)
-        return i
+                Preprocessor._debug_store(PATH_PREPROCESSING_LOGS + "pp_{:03d}_{:02d}".format(self.num_calls, i+1), in_)
+        return in_
 
     @staticmethod
     def _debug_store(path, data):
@@ -101,3 +124,8 @@ class Preprocessor(Makeable):
         else:
             raise NotImplementedError
 
+    @classmethod
+    def make(cls, spec=None, **kwargs):
+        if callable(spec):
+            return super().make(_args=[spec])
+        return super().make(spec, **kwargs)

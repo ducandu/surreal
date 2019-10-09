@@ -31,7 +31,7 @@ try:
     with open(os.path.expanduser(os.path.join(SURREAL_HOME, "debug.json"))) as f:
         DEBUG_SETTINGS = json.load(f)
     logging.warning("debug.json file found in home directory! This could possibly mean slowdowns in execution.")
-    for i in range(3, 0, -1):
+    for i in range(2, 0, -1):
         logging.warning(i)
         sleep(1)
 except json.decoder.JSONDecodeError as e:

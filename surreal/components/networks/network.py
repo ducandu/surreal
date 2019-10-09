@@ -23,7 +23,7 @@ from surreal.components.distribution_adapters.adapter_utils import get_adapter_t
 from surreal.components.distributions.distribution import Distribution
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
 from surreal.components.models import Model
-from surreal.spaces import Float, Int, Space, PrimitiveSpace
+from surreal.spaces import Bool, Float, Int, Space, PrimitiveSpace, ContainerSpace
 from surreal.spaces.space_utils import get_default_distribution_from_space
 from surreal.utils.errors import SurrealError
 from surreal.utils.keras import keras_from_spec
@@ -31,18 +31,17 @@ from surreal.utils.nest import flatten_alongside
 from surreal.utils.util import complement_struct
 
 
-# TODO: Change this into a multi-input-stream function, no matter, what the input_space is.
 class Network(Model):
     """
     A generic function approximator holding a network and an output adapter and offering an intuitive call-API.
     """
     def __init__(
-            self, network, output_space, adapters=None, distributions=False, deterministic=False,
-            input_space=None
+            self, network, *, output_space, adapters=None, distributions=False, deterministic=False,
+            input_space=None, pre_concat_networks=None, auto_flatten_inputs=True
     ):
         """
         Args:
-            network (Union[tf.keras.Model,tf.keras.Layer,callable]): The neural network callable
+            network (Union[tf.keras.models.Model,tf.keras.layers.Layer,callable]): The neural network callable
                 (w/o the final action-layer) for this function approximator.
 
             output_space (Space): The output Space (may be a ContainerSpace).
@@ -64,13 +63,25 @@ class Network(Model):
                 Default: False (stochastic sampling).
 
             input_space (Optional[Space]): Input space may be provided to ensure immediate build of the network (and
-                its variables).
+                its variables). Also, if it's a ContainerSpace, will build additional "pre-concat" NNs, through
+                which input components are passed befor ebeing concat'd and sent further through the main NN.
+
+            pre_concat_networks (Union[Dict,Tuple]): The neural network callable(s) for the different input
+                components. Only applicable if `input_space` is given an a ContainerSpace.
+
+            auto_flatten_inputs (bool): If True, will try to automatically flatten (or one-hot) all input components,
+                but only if for that input-component, no `pre_concat_network` has been specified.
+                For Int: One-hot along all non-main-axes. E.g. [[2, 3], [1, 2]] -> [0 0 1 0 0 0 0 1 0 1 0 0 0 0 1 0]
+                For Float: Flatten along all non-main axes. E.g. [[2.0, 3.0], [1.0, 2.0]] -> [2.0 3.0 1.0 2.0]
+                For Bool: Flatten along all non-main axes and convert to 0.0 (False) or 1.0 (True).
+                Default: True.
         """
         super().__init__()
 
         # Store the given tf.keras.Model.
         self.network = network
 
+        # Whether distribution outputs should be sampled deterministically.
         self.deterministic = deterministic
 
         # Create the output adapters.
@@ -82,50 +93,60 @@ class Network(Model):
         self.distributions = []
         self._create_adapters_and_distributions(output_space, adapters, distributions)
 
-        # If input space given, push through a sample to build our weights.
-        self.input_space = input_space
+        # Input space given explicitly.
+        self.input_space = Space.make(input_space) if input_space is not None else None
+        self.flat_input_space = None
+        self.pre_concat_networks = []  # One per input component.
         if self.input_space is not None:
+            # If container space, build input NNs, then concat and connect to `self.network`.
+            if isinstance(self.input_space, ContainerSpace):
+                self._create_pre_concat_networks(pre_concat_networks, auto_flatten_inputs)
+            # Push through a sample to build our weights.
             self(self.input_space.sample())
 
     def _create_adapters_and_distributions(self, output_space, adapters, distributions):
         if output_space is None:
             adapter = DistributionAdapter.make(adapters)
             self.output_space = adapter.output_space
-            # Assert single component action space.
+            # Assert single component output space.
             assert isinstance(self.output_space, PrimitiveSpace), \
-                "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy constructor!"
+                "ERROR: Output space must not be ContainerSpace if no `output_space` is given in Network constructor!"
         else:
             self.output_space = Space.make(output_space)
         self.flat_output_space = nest.flatten(self.output_space)
 
         # Find out whether we have a generic adapter-spec (one for all output components).
-        generic_adapter_spec_for_all_output_components = None
+        generic_adapter_spec = None
         if isinstance(adapters, dict) and not any(key in adapters for key in self.output_space):
-            generic_adapter_spec_for_all_output_components = adapters
+            generic_adapter_spec = adapters
         # adapters may be incomplete (add Nones to non-defined leafs).
         elif isinstance(adapters, dict):
             adapters = complement_struct(adapters, reference_struct=self.output_space)
         flat_output_adapter_spec = flatten_alongside(adapters, alongside=self.output_space)
 
         # Find out whether we have a generic distribution-spec (one for all output components).
-        generic_distribution_spec_for_all_output_components = None
-        if isinstance(distributions, dict) and not any(key in distributions for key in self.output_space):
-            generic_distribution_spec_for_all_output_components = distributions
-        # adapters may be incomplete (add Nones to non-defined leafs).
-        elif isinstance(distributions, dict):
-            distributions = complement_struct(distributions, reference_struct=self.output_space)
-        # No distributions whatsoever.
-        elif not distributions:
-            distributions = complement_struct({}, reference_struct=self.output_space)
-        elif distributions is True or distributions == "default":
-            distributions = complement_struct({}, reference_struct=self.output_space, value=True)
-        flat_distribution_spec = tf.nest.flatten(distributions)
+        generic_distribution_spec = None
+        if isinstance(self.output_space, PrimitiveSpace) or \
+                (isinstance(distributions, dict) and not any(key in distributions for key in self.output_space)):
+            generic_distribution_spec = distributions
+            flat_distribution_spec = tf.nest.map_structure(lambda s: distributions, self.flat_output_space)
+        else:
+            # adapters may be incomplete (add Nones to non-defined leafs).
+            if isinstance(distributions, dict):
+                distributions = complement_struct(distributions, reference_struct=self.output_space)
+            # No distributions whatsoever.
+            elif not distributions:
+                distributions = complement_struct({}, reference_struct=self.output_space)
+            # Use default distributions (depending on output-space(s)).
+            elif distributions is True or distributions == "default":
+                distributions = complement_struct({}, reference_struct=self.output_space, value=True)
+            flat_distribution_spec = tf.nest.flatten(distributions)
 
         # Figure out our Distributions.
         for i, output_component in enumerate(self.flat_output_space):
             # Generic spec -> Use it.
-            if generic_adapter_spec_for_all_output_components:
-                da_spec = copy.deepcopy(generic_adapter_spec_for_all_output_components)
+            if generic_adapter_spec:
+                da_spec = copy.deepcopy(generic_adapter_spec)
                 da_spec["output_space"] = output_component
             # Spec dict -> find setting in possibly incomplete spec.
             elif isinstance(adapters, dict):
@@ -140,21 +161,17 @@ class Network(Model):
                 da_spec = adapters
 
             # We have to get the type of the adapter from a distribution.
-            dist_spec = None
             if isinstance(da_spec, dict) and "type" not in da_spec:
                 # Single distribution settings for all output components.
-                if generic_distribution_spec_for_all_output_components is not None:
-                    if generic_distribution_spec_for_all_output_components is not False:
-                        dist_spec = get_default_distribution_from_space(
-                            output_component, **generic_distribution_spec_for_all_output_components
-                        )
-
+                if generic_distribution_spec is not None:
+                    settings = {} if generic_distribution_spec in ["default", True, False] else (generic_distribution_spec or {})
+                    dist_spec = get_default_distribution_from_space(output_component, **settings)
                 else:
                     settings = flat_distribution_spec[i] if isinstance(flat_distribution_spec[i], dict) else {}
                     dist_spec = get_default_distribution_from_space(output_component, **settings)
 
                 # No distribution.
-                if not flat_distribution_spec[i]:
+                if not generic_distribution_spec and not flat_distribution_spec[i]:
                     self.distributions.append(None)
                 # Some distribution.
                 else:
@@ -165,7 +182,8 @@ class Network(Model):
                             format(type(output_space).__name__, type(self).__name__)
                         )
                 # Special case: No distribution AND float -> plain output adapter.
-                if not flat_distribution_spec[i] and isinstance(da_spec["output_space"], Float):
+                if not generic_distribution_spec and \
+                        (not flat_distribution_spec[i] and isinstance(da_spec["output_space"], Float)):
                     da_spec["type"] = "plain-output-adapter"
                 # All other cases: Get adapter type from distribution spec
                 # (even if we don't use a distribution in the end).
@@ -180,16 +198,67 @@ class Network(Model):
                     dist_spec = get_distribution_spec_from_adapter(self.adapters[-1])
                     self.distributions.append(Distribution.make(dist_spec))
 
-        # TODO: Can we avoid this registration process somehow?
-        #for a in self.adapters:
-        #    for k in a.keras_models:
-        #        self.add_keras_model(k)
+    def _create_pre_concat_networks(self, pre_concat_networks, auto_flatten_inputs=True):
+        # Find out whether we have a generic pre-concat-spec (one for all input components).
+        generic_pre_concat_spec_for_all_input_components = None
+        if isinstance(pre_concat_networks, dict) and not any(key in pre_concat_networks for key in self.input_space):
+            generic_pre_concat_spec_for_all_input_components = pre_concat_networks
+        # Spec may be incomplete (add Nones to non-defined leafs).
+        elif isinstance(pre_concat_networks, dict):
+            pre_concat_networks = complement_struct(pre_concat_networks, reference_struct=self.input_space)
+        # No distributions whatsoever.
+        elif not pre_concat_networks:
+            pre_concat_networks = complement_struct({}, reference_struct=self.input_space)
+        flat_pre_concat_nn_spec = flatten_alongside(pre_concat_networks, alongside=self.input_space)
+
+        self.flat_input_space = nest.flatten(self.input_space)
+
+        # Figure out our pre-concat NNs.
+        for i, input_component in enumerate(self.flat_input_space):
+            # Generic spec -> Use it.
+            if generic_pre_concat_spec_for_all_input_components:
+                nn = keras_from_spec(generic_pre_concat_spec_for_all_input_components)
+            # Spec dict -> find setting in possibly incomplete spec.
+            else:
+                # If not specified in dict.
+                if flat_pre_concat_nn_spec[i] is None:
+                    # Automatically pre-process inputs (flatten/one-hot/bool-to-float, etc..).
+                    if auto_flatten_inputs is True:
+                        nn = tf.keras.layers.Lambda(self._auto_input_lambda(input_component))
+                    # No auto-preprocessing.
+                    else:
+                        nn = None
+                # Manual preprocessing.
+                else:
+                    nn = keras_from_spec(flat_pre_concat_nn_spec[i])
+
+            self.pre_concat_networks.append(nn)
+
+    def _auto_input_lambda(self, input_component):
+        new_shape = tuple([-1 for _ in range(len(input_component.main_axes))]) + \
+                    (int(tf.reduce_prod(input_component.get_shape(with_category_rank=True))),)
+        if isinstance(input_component, Int):
+            return lambda i_: tf.reshape(tf.one_hot(i_, input_component.num_categories) if i_.dtype in [tf.int32, tf.int64] else i_, new_shape)
+        elif isinstance(input_component, Float):
+            return lambda i_: tf.reshape(i_, new_shape)
+        elif isinstance(input_component, Bool):
+            return lambda i_: tf.reshape(tf.cast(i_, tf.float32), new_shape)
+        else:
+            raise SurrealError("Unsupported input-space type: {}!".format(type(input_component).__name__))
 
     def call(self, inputs, values=None, *, deterministic=None, likelihood=False, log_likelihood=False):
         """
         Computes Q(s) -> a by passing the inputs through our model
         """
         deterministic = deterministic if deterministic is not None else self.deterministic
+
+        # If complex input -> pass through pre_concat_nns, then concat, then move on through core nn.
+        if len(self.pre_concat_networks) > 0:
+            inputs = nest.flatten(inputs)
+            inputs = tf.concat([
+                self.pre_concat_networks[i](in_) if self.pre_concat_networks[i] is not None else in_
+                for i, in_ in enumerate(inputs)
+            ], axis=-1)
 
         # Return struct according to output Space.
         nn_out = self.network(inputs)
@@ -211,48 +280,71 @@ class Network(Model):
                 ]
                 packed_sample = nest.pack_sequence_as(self.output_space.structure, sample)
                 # Return (combined?) likelihood values for each sample along with sample.
-                if likelihood is True:
-                    llhs = [
-                        distribution._prob(tfp_distributions[i], sample[i])
-                        for i, distribution in enumerate(self.distributions) if distribution
+                if likelihood is True or log_likelihood is True:
+                    # Calculate probs/likelihoods (all in log-space for increased accuracy (for very small probs)).
+                    log_llhs_components = [
+                        # Reduce all axes that are not main_axes, so that we get only one
+                        # (log)?-prob/likelihood per (composite)-action.
+                        tf.reduce_sum(
+                            distribution._log_prob(tfp_distributions[i], sample[i]),
+                            axis=self.flat_output_space[i].reduction_axes
+                        )
+                        if distribution is not None else 0.0
+                        for i, distribution in enumerate(self.distributions)
                     ]
-                    total_llh = 1.0
-                    for llh in llhs:
-                        total_llh *= llh
-                    return packed_sample, total_llh
+                    # Combine all probs/likelihoods by multiplying up.
+                    log_llh_sum = 0.0
+                    for log_llh_component in log_llhs_components:
+                        log_llh_sum += log_llh_component
+                    return packed_sample, log_llh_sum if log_likelihood else tf.exp(log_llh_sum)
+
                 else:
                     return packed_sample
             # Values given -> Return probabilities/likelihoods or plain outputs for given values (if no distribution).
             else:
                 values = complement_struct(values, self.output_space, "_undef_")
                 flat_values = tf.nest.flatten(values)
-                combined_likelihood = None
+                combined_likelihood_return = None
                 for i, distribution in enumerate(self.distributions):
                     if distribution is not None and flat_values[i] is not "_undef_" and flat_values[i] is not None:
-                        llhs = distribution.prob(self.adapters[i](nn_out), flat_values[i])
-                        llh = tf.math.reduce_prod(llhs, axis=[-i - 1 for i in range(len(self.flat_output_space[i].shape))])
-                        combined_likelihood = (combined_likelihood if combined_likelihood is not None else 1.0) * llh
+                        log_llhs = distribution.log_prob(self.adapters[i](nn_out), flat_values[i])
+                        log_llh_sum = tf.math.reduce_sum(log_llhs, axis=self.flat_output_space[i].reduction_axes)
+                        combined_likelihood_return = (combined_likelihood_return if combined_likelihood_return is not None else 0.0) + log_llh_sum
+                if combined_likelihood_return is not None and not log_likelihood:
+                    combined_likelihood_return = tf.math.exp(combined_likelihood_return)
 
                 outputs = []
                 for i, distribution in enumerate(self.distributions):
+                    # No distribution.
                     if distribution is None and flat_values[i] is not "_undef_":
+                        # Some value for this component was given.
                         if flat_values[i] is not None and flat_values[i] is not False:
-                            assert isinstance(self.flat_output_space[i], Int)
+                            # Make sure it's an Int space.
+                            if not isinstance(self.flat_output_space[i], Int):
+                                raise SurrealError(
+                                    "Component {} of output space does not have a distribution and is not an Int. "
+                                    "Hence, values for this component (to get outputs of likelihoodsfor) are not "
+                                    "allowed in `call`."
+                                )
+                            # Return outputs for the discrete values by doing the sum-over-Hadamard-trick.
                             outputs.append(tf.math.reduce_sum(
                                 self.adapters[i](nn_out) *
                                 tf.one_hot(flat_values[i], depth=self.flat_output_space[i].num_categories), axis=-1
                             ))
+                        # No value given, return plain adapter output.
                         else:
                             outputs.append(self.adapters[i](nn_out))
+                    # Distribution: Already handled by likelihood block above.
                     else:
                         outputs.append(None)
 
+                # Only likelihood expected (there are no non-distribution components in our output space).
                 if all(o is None for o in outputs):
-                    return combined_likelihood
+                    return combined_likelihood_return
 
                 packed_out = nest.pack_sequence_as(self.output_space.structure, outputs)
-                if combined_likelihood is not None:
-                    return packed_out, combined_likelihood
+                if combined_likelihood_return is not None:
+                    return packed_out, combined_likelihood_return
                 else:
                     return packed_out
 
@@ -271,17 +363,24 @@ class Network(Model):
     def copy(self, trainable=True):
         # Hide non-copyable members.
         network = self.network
+        pre_concat_nns = self.pre_concat_networks
         adapters = self.adapters
         self.network = None
+        self.pre_concat_networks = None
         self.adapters = None
 
         # Do the copy.
         copy_ = copy.deepcopy(self)
         copy_.network = self.clone_component(network, trainable=trainable)
+        copy_.pre_concat_networks = [
+            self.clone_component(pre_concat_nn, trainable=trainable) if pre_concat_nn is not None else None
+            for pre_concat_nn in pre_concat_nns
+        ]
         copy_.adapters = [a.copy(trainable=trainable) for a in adapters]
 
         # Put everything back in place and clone keras models.
         self.network = network
+        self.pre_concat_networks = pre_concat_nns
         self.adapters = adapters
 
         # Do a sample call to build the copy, then sync weights.
@@ -293,6 +392,14 @@ class Network(Model):
 
     def _get_weights_list(self):
         ret = self.network.variables  # type: list
+        for pre_nn in self.pre_concat_networks:
+            if hasattr(pre_nn, "get_weights") and callable(pre_nn.get_weights):
+                # Try whether get_weights has the `as_ref` option, if not, must be a native keras object ...
+                try:
+                    ret.extend(pre_nn.get_weights(as_ref=True))
+                # ... in which case, we simply get `variables`.
+                except TypeError as e:
+                    ret.extend(pre_nn.variables)
         for a in self.adapters:
             ret.extend(a.get_weights(as_ref=True))
         return ret
@@ -312,12 +419,12 @@ class Network(Model):
         else:
             network = super().make(spec, **kwargs)
 
-        # Inspect and add to Algo if caller is an algo.
+        # Inspect and add to Algo if caller has `savables` property and is list.
         # [1] = direct caller of this method.
         # [0] = frame object
         caller_frame = inspect.stack()[1][0]
-        # Caller has attribute `saveables` -> Add this component to `[caller].saveables`.
-        if hasattr(caller_frame.f_locals["self"], "saveables") and \
-                isinstance(caller_frame.f_locals["self"].saveables, list):
-            caller_frame.f_locals["self"].saveables.append(network)
+        # Caller has attribute `savables` -> Add this component to `[caller].savables`.
+        if hasattr(caller_frame.f_locals["self"], "savables") and \
+                isinstance(caller_frame.f_locals["self"].savables, list):
+            caller_frame.f_locals["self"].savables.append(network)
         return network

@@ -1,5 +1,4 @@
 # Copyright 2019 ducandu GmbH, All Rights Reserved
-# (this is a modified version of the Apache 2.0 licensed RLgraph file of the same name).
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,6 +99,8 @@ class TestDQN2015Functionality(unittest.TestCase):
             action_space=action_space
         ), name="my-dqn")
 
+        check(dqn.Q.get_weights(), dqn.Qt.get_weights())
+
         # Point actor(s) to the algo.
         for actor in env.actors:
             actor.set_algo(dqn)
@@ -115,8 +116,7 @@ class TestDQN2015Functionality(unittest.TestCase):
 
         # Perform one step in the env.
         expected_action = np.argmax(dqn.Q(dqn.Phi(env.state)), axis=-1)
-        env.run(ticks=1)  # ts=0 -> sync
-        check(dqn.Q.get_weights(), dqn.Qt.get_weights())
+        env.run(ticks=1)  # ts=0 -> do nothing
         # Check action taken.
         check(dqn.a.value, expected_action)
         # Check state of the env after action taken.
@@ -182,3 +182,4 @@ class TestDQN2015Functionality(unittest.TestCase):
             np.array([[0., 1., 0., 0.], [0., 1., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]])
         ])
 
+        env.terminate()

@@ -132,9 +132,10 @@ class Dict(ContainerSpace, dict):
     def shape(self):
         return tuple([self[key].shape for key in sorted(self.keys())])
 
-    def get_shape(self, include_main_axes=False, with_category_rank=False):
+    def get_shape(self, include_main_axes=False, main_axis_value=None, with_category_rank=False):
         return tuple(
-            [self[key].get_shape(include_main_axes=include_main_axes, with_category_rank=with_category_rank)
+            [self[key].get_shape(include_main_axes=include_main_axes, main_axis_value=main_axis_value,
+                                 with_category_rank=with_category_rank)
              for key in sorted(self.keys())]
         )
 
@@ -158,6 +159,9 @@ class Dict(ContainerSpace, dict):
         return {key: subspace.create_variable(
             name + "/" + key, is_input_feed=is_input_feed, **kwargs
         ) for key, subspace in self.items()}
+
+    def create_keras_input(self):
+        return {key: subspace.create_keras_input() for key, subspace in self.items()}
 
     def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:
@@ -255,9 +259,10 @@ class Tuple(ContainerSpace, tuple):
     def shape(self):
         return tuple([c.shape for c in self])
 
-    def get_shape(self, include_main_axes=False, with_category_rank=False):
+    def get_shape(self, include_main_axes=False, main_axis_value=None, with_category_rank=False):
         return tuple(
-            [c.get_shape(include_main_axes=include_main_axes, with_category_rank=with_category_rank) for c in self]
+            [c.get_shape(include_main_axes=include_main_axes, main_axis_value=main_axis_value,
+                         with_category_rank=with_category_rank) for c in self]
         )
 
     @property
@@ -282,6 +287,9 @@ class Tuple(ContainerSpace, tuple):
                 name+"/"+str(i), is_input_feed=is_input_feed, **kwargs
             ) for i, subspace in enumerate(self)]
         )
+
+    def create_keras_input(self):
+        return tuple([subspace.create_keras_input() for i, subspace in enumerate(self)])
 
     def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:

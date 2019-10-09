@@ -20,6 +20,7 @@ import cv2
 import json
 import numpy as np
 import threading
+import time
 
 from surreal import PATH_EPISODE_LOGS
 from surreal.debug import StoreEveryNthEpisode
@@ -79,12 +80,14 @@ class Env(Makeable, metaclass=ABCMeta):
 
         # Current state: Must be implemented as a flattened list of buffer(s) (one for each container item).
         self.state = None
+
         # Current rewards per actor.
         self.reward = np.zeros(shape=(len(actors),))
         # Current accumulated episode returns per actor.
         self.episodes_returns = np.zeros(shape=len(actors))
         # Historic episode returns in chronological order.
         self.historic_episodes_returns = []
+
         # Current terminals per actor.
         self.terminal = np.array([True] * len(actors))
 
@@ -102,12 +105,14 @@ class Env(Makeable, metaclass=ABCMeta):
                 ret[algo_name].append(i)
         return ret
 
-    def run(self, ticks=None, actor_time_steps=None, sync=True, render=None):
+    def run(self, ticks=None, actor_time_steps=None, episodes=None, sync=True, render=None):
         """
         Runs this Env for n time_steps (or infinitely if `time_steps` is not given or 0).
 
         Args:
-            ticks (Optional[int]): The number of time steps (ticks) to run for.
+            ticks (Optional[int]): The number of env-ticks to run for.
+            actor_time_steps (Optional[int]): The number of single actor time-steps to run for.
+            episodes (Optional[int]): The number of episodes (across all actors) to execute.
             sync (bool): Whether to run synchronously (wait for execution to be done) or not (run in separate thread).
             render (bool): Whether to render this run. If not None, will override `self.do_render`.
         """
@@ -117,23 +122,26 @@ class Env(Makeable, metaclass=ABCMeta):
 
         self.running = True
         if sync is True:
-            self._run(ticks, actor_time_steps, render=render)
+            self._run(ticks, actor_time_steps, episodes, render=render)
         else:
             # TODO: What if `run` is called, while this env is still running?
-            self.run_thread = threading.Thread(target=self._run, args=[ticks, actor_time_steps])
+            self.run_thread = threading.Thread(target=self._run, args=[ticks, actor_time_steps, episodes])
             self.run_thread.run()
 
-    def _run(self, ticks=None, actor_time_steps=None, render=None):
+    def _run(self, ticks=None, actor_time_steps=None, episodes=None, render=None):
         """
         The actual loop scaffold implementation (to run in thread or synchronously).
 
         Args:
-            ticks (Optional[int]): The number of time steps (ticks) to run for.
+            ticks (Optional[int]): The number of env-ticks to run for.
+            actor_time_steps (Optional[int]): The number of single actor time-steps to run for.
+            episodes (Optional[int]): The number of episodes (across all actors) to execute.
         """
         # Set max-time-steps.
         self.max_ticks = (actor_time_steps / len(self.actors)) if actor_time_steps is not None else \
             (ticks or float("inf"))
         self.max_time_steps = self.max_ticks * len(self.actors)
+        self.max_episodes = episodes if episodes is not None else float("inf")
 
         # Build a algo-map for faster non-repetitive lookup.
         quick_algo_map = {}
@@ -141,7 +149,11 @@ class Env(Makeable, metaclass=ABCMeta):
             quick_algo_map[algo_name] = self.actors[self.rl_algos_to_actors[algo_name][0]].rl_algo  # type: RLAlgo
 
         tick = 0
-        while self.running is True and tick < self.max_ticks:
+        episode = 0
+        last_time_measurement = time.time()
+        last_episode_measurement = 0
+        last_actor_ts_measurement = 0
+        while self.running is True and tick < self.max_ticks and episode < self.max_episodes:
             # Loop through Actors, gather their observations/rewards/terminals and then tick each one of their
             # algos exactly once.
             for algo_name, actor_slots in self.rl_algos_to_actors.items():
@@ -150,6 +162,8 @@ class Env(Makeable, metaclass=ABCMeta):
                     if self.terminal[slot]:
                         if tick > 0:
                             self.num_episodes += 1
+                            episode += 1
+                            last_episode_measurement += 1
 
                             # Switch on/off debug trajectory logging.
                             if StoreEveryNthEpisode is not False and self.debug_store_episode is False and \
@@ -167,15 +181,22 @@ class Env(Makeable, metaclass=ABCMeta):
 
                             # Log stats sometimes.
                             if slot == 0:
+                                t = time.time()
+                                delta_t = t - last_time_measurement
                                 print(
-                                    "Tick={} (x{} Actors); Episodes done: {}; "
-                                    "Avg episode len ~ {}; Avg R ~ {:.4f}".format(
+                                    "Ticks(tx)={} ({} Actors); Episodes(ep)={}; "
+                                    "Avg ep len~{}; Avg R~{:.4f}; tx/s={:d}; ep/s={:.2f}".format(
                                         self.tick, len(self.actors),
                                         self.num_episodes,
                                         int(np.mean(self.historic_episodes_lengths[-len(self.actors):])),
-                                        np.mean(self.historic_episodes_returns[-len(self.actors):])
+                                        np.mean(self.historic_episodes_returns[-len(self.actors):]),
+                                        int(last_actor_ts_measurement / delta_t),  # TODO: these two are wrong
+                                        last_episode_measurement / delta_t
                                     )
                                 )
+                                last_time_measurement = t
+                                last_episode_measurement = 0
+                                last_actor_ts_measurement = 0
 
                         # Reset episode stats.
                         self.episodes_time_steps[slot] = 0
@@ -209,6 +230,7 @@ class Env(Makeable, metaclass=ABCMeta):
             self.tick += 1
             # Global time step (all actors).
             self.time_step_all_actors += len(self.actors)
+            last_actor_ts_measurement += len(self.actors)
             # Single episode (per actor) time_steps.
             self.episodes_time_steps += 1
 
@@ -249,7 +271,6 @@ class Env(Makeable, metaclass=ABCMeta):
         # Action translations?
         if self.action_map is not None:
             actions = self.action_map(actions)
-            #print(actions)
 
         # Call main action handler.
         self._act(actions)
@@ -295,8 +316,9 @@ class Env(Makeable, metaclass=ABCMeta):
             cv2.imwrite(path+".png", state)
         # Some other data.
         else:
-            with open(path, "w") as file:
-                json.dump(file, state)
+            print("***WARNING: No mechanism yet for state debug-saving if not image!")
+            #with open(path, "w") as file:
+            #    json.dump(file, state)
 
     @abstractmethod
     def __str__(self):

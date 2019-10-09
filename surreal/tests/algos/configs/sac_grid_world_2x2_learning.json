@@ -1,0 +1,34 @@
+{
+  "gamma": 0.99,
+  "memory_capacity": 1024,
+  "memory_batch_size": 32,
+  "initial_alpha": 0.5,
+
+  "gumbel_softmax_temperature": 0.1,
+
+  "num_q_networks": 1,
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 20,
+      "activation": "tanh"
+    }
+  ],
+
+  "default_optimizer": {
+    "type": "adam",
+    "learning_rate": 0.0001
+  },
+
+  "q_optimizer": {
+    "type": "adam",
+    "learning_rate": 0.005
+  },
+
+  "time_unit": "time_steps",
+  "update_after": "when-memory-ready",
+  "update_frequency": 1,
+  "num_steps_per_update": 1,
+  "sync_frequency": 1,
+  "sync_tau": 0.005
+}

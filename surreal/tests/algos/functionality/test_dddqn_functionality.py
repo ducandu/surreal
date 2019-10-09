@@ -1,5 +1,4 @@
 # Copyright 2019 ducandu GmbH, All Rights Reserved
-# (this is a modified version of the Apache 2.0 licensed RLgraph file of the same name).
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,7 +101,9 @@ class TestDDDQNFunctionality(unittest.TestCase):
         # Run for n ticks, then check memory contents for correct n-step tuples.
         for _ in range(5):
             env.run(ticks=100, sync=True, render=False)
-            self.check_2x2_grid_world_mem(algo.memory.memory)
+            self._check_2x2_grid_world_mem(algo.memory.memory)
+
+        env.terminate()
 
     def test_dddqn_n_step_memory_insertion_n_step_samples_only(self):
         """
@@ -130,9 +131,11 @@ class TestDDDQNFunctionality(unittest.TestCase):
         # Run for n ticks, then check memory contents for correct n-step tuples.
         for _ in range(5):
             env.run(ticks=100, sync=True, render=False)
-            self.check_2x2_grid_world_mem(algo.memory.memory, n_step_only=True)
+            self._check_2x2_grid_world_mem(algo.memory.memory, n_step_only=True)
 
-    def check_2x2_grid_world_mem(self, memory, n_step_only=False):
+        env.terminate()
+
+    def _check_2x2_grid_world_mem(self, memory, n_step_only=False):
         for m in memory:
             # s=0 (start state).
             if m[4][0] == 1.0:

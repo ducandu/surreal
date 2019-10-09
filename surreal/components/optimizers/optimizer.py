@@ -38,8 +38,8 @@ class Optimizer(Makeable, metaclass=ABCMeta):
             clip_norm (Optional[float]): The value to clip-by-norm to.
                 Note: Both `clip_norm` and `clip_value` may be defined.
 
-            clip_value (Optional[float]: The value to clip-by-value to.
-                Note: Both `clip_norm` and `clip_value` may be defined.
+            clip_value (Optional[float]: The value to clip-by-value to. Must be positive (clipping
+                between -clip_value and + clip_value). Note: Both `clip_norm` and `clip_value` may be defined.
         """
         super().__init__()
 
@@ -49,7 +49,12 @@ class Optimizer(Makeable, metaclass=ABCMeta):
         self.learning_rate = Decay.make(learning_rate)
         self.decay = decay
         self.clip_norm = clip_norm
+
+        # Must be positive. Will clip between -clip_value and +clip_value.
         self.clip_value = clip_value
+        if self.clip_value is not None:
+            assert self.clip_value > 0, \
+                "ERROR: `clip_value` must be positive. Clipping will happen between -`clip_value` and +`clip_value`!"
 
     def minimize(self, loss, variables, time_percentage=None):
         """

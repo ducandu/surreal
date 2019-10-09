@@ -14,19 +14,19 @@
 # limitations under the License.
 # ==============================================================================
 
-
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
 
 
 class GumbelSoftmaxDistributionAdapter(DistributionAdapter):
     """
-    Action adapter for the GumbelSoftmax distribution
+    Action adapter for the GumbelSoftmax distribution.
     """
     def get_units_and_shape(self):
         units = self.output_space.flat_dim_with_categories
-        new_shape = self.output_space.get_shape(with_category_rank=True)
+        new_shape = self.output_space.get_shape(include_main_axes=True, with_category_rank=True)
         new_shape = tuple([i if i is not None else -1 for i in new_shape])
         return units, new_shape
 
     def get_parameters_from_adapter_outputs(self, adapter_outputs):
+        # Return raw logits.
         return adapter_outputs

@@ -438,7 +438,8 @@ def get_default_distribution_from_space(
     """
     # Int: Categorical.
     if isinstance(space, Int):
-        if discrete_distribution_type == "gumbel_softmax":
+        assert discrete_distribution_type in ["gumbel-softmax", "categorical"]
+        if discrete_distribution_type == "gumbel-softmax":
             return dict(type="gumbel-softmax", temperature=gumbel_softmax_temperature)
         else:
             return dict(type=discrete_distribution_type)
@@ -452,6 +453,7 @@ def get_default_distribution_from_space(
             return dict(type="normal")
         # Bounded -> according to the bounded_distribution parameter.
         else:
+            assert bounded_distribution_type in ["beta", "squashed-normal"]
             return dict(type=bounded_distribution_type, low=space.low, high=space.high)
     # Container Space.
     elif isinstance(space, ContainerSpace):

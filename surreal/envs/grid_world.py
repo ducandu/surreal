@@ -21,7 +21,7 @@ import random
 import time
 
 from surreal.spaces import Int, Bool, Dict
-from surreal.envs.single_actor_env import SingleActorEnv
+from surreal.envs.local_env import LocalEnv, LocalEnvProcess
 
 
 # Init pygame?
@@ -39,7 +39,7 @@ except pygame.error:
     pygame = None
 
 
-class GridWorld(SingleActorEnv):
+class GridWorld(LocalEnv):
     """
     A classic grid world.
 
@@ -64,9 +64,7 @@ class GridWorld(SingleActorEnv):
         "chain": [
             "G    S  F G"
         ],
-        "long-chain": [
-            "                                 S                                 G"
-        ],
+        "long-chain": ["                                 S                F                G"],
         "2x2": [
             "SH",
             " G"
@@ -102,7 +100,7 @@ class GridWorld(SingleActorEnv):
         ]
     }
 
-    def __init__(self, world="2x2", actors=None, save_mode=False, action_type="udlr",
+    def __init__(self, world="2x2", actors=1, num_cores=1, save_mode=False, action_type="udlr",
                  reward_function="sparse", state_representation="discrete"):
         """
         Args:
@@ -140,35 +138,61 @@ class GridWorld(SingleActorEnv):
         world[world == 'H'] = ("H" if not save_mode else "F")
 
         # `world` is a list of lists that needs to be indexed using y/x pairs (first row, then column).
-        #self.worlds = [world]
-        self.n_row, self.n_col = world.shape
+        n_row, n_col = world.shape
 
         # Figure out our state space.
         assert state_representation in ["discrete", "xy", "xy+orientation", "camera"]
-        self.state_representation = state_representation
         # Discrete states (single int from 0 to n).
-        if self.state_representation == "discrete":
-            state_space = Int(self.n_row * self.n_col)
+        if state_representation == "discrete":
+            state_space = Int(n_row * n_col)
         # x/y position (2 ints).
-        elif self.state_representation == "xy":
-            state_space = Int(low=(0, 0), high=(self.n_col, self.n_row), shape=(2,))
+        elif state_representation == "xy":
+            state_space = Int(low=(0, 0), high=(n_col, n_row), shape=(2,))
         # x/y position + orientation (3 ints).
-        elif self.state_representation == "xy+orientation":
-            state_space = Int(low=(0, 0, 0, 0), high=(self.n_col, self.n_row, 1, 1))
+        elif state_representation == "xy+orientation":
+            state_space = Int(low=(0, 0, 0, 0), high=(n_col, n_row, 1, 1))
         # Camera outputting a 2D color image of the world.
         else:
-            state_space = Int(0, 255, shape=(self.n_row, self.n_col, 3))
+            state_space = Int(0, 255, shape=(n_row, n_col, 3))
 
         # Specify the actual action space.
-        self.action_type = action_type
-        action_space = Int(4) if self.action_type == "udlr" else Dict(dict(
-            forward=Int(3), turn=Int(3), jump=(Int(2) if self.action_type == "ftj" else Bool())
+        action_space = Int(4) if action_type == "udlr" else Dict(dict(
+            forward=Int(3), turn=Int(3), jump=(Int(2) if action_type == "ftj" else Bool())
         ))
         # Call super.
-        super(GridWorld, self).__init__(actors=actors, state_space=state_space, action_space=action_space)
+        super(GridWorld, self).__init__(
+            actors=actors, num_cores=num_cores,
+            state_space=state_space, action_space=action_space,
+            process_class=GridWorldEnvProcess,
+            # kwargs passed on to process ctor.
+            world=world,
+            n_col=n_col, n_row=n_row,
+            state_representation=state_representation,
+            action_type=action_type,
+            reward_function=reward_function,
+        )
+        # Buffers for returns from processes.
+        self.state = np.array([state_space.zeros()] * actors)
+        # Reset ourselves.
+        self.reset_all()
+
+    def __str__(self):
+        return "GridWorld({})".format(self.description)
+
+
+class GridWorldEnvProcess(LocalEnvProcess):
+    """
+    The (distributable) process belonging to a GridWorldEnv.
+    """
+    def __init__(self, world, *, state_representation, action_type, reward_function, n_col, n_row, **kwargs):
+        super().__init__(**kwargs)
 
         # Define all n worlds.
-        self.worlds = np.array([world] * len(self.actors))
+        self.worlds = np.array([world] * self.num_actors)
+        self.n_row = n_row
+        self.n_col = n_col
+        self.state_representation = state_representation
+        self.action_type = action_type
 
         # Store the goal position for proximity calculations (for "potential" reward function).
         (self.goal_y,), (self.goal_x,) = np.nonzero(world == "G")
@@ -181,28 +205,24 @@ class GridWorld(SingleActorEnv):
         self.default_start_pos = self._get_discrete_pos(start_x, start_y)
 
         # The actual observation (according to `state_representation`).
-        self.state = np.array([state_space.zeros()] * len(self.actors))
+        #self.state = np.array([state_space.zeros()] * self.num_actors)
         # The current discrete (int) positions of each actor.
-        self.discrete_pos = np.array([self.default_start_pos for _ in self.actors], dtype=np.int32)
+        self.discrete_pos = np.array([self.default_start_pos for _ in range(self.num_actors)], dtype=np.int32)
         # Only used if `state_representation`=='xy+orientation'. Int: 0, 90, 180, 270
-        self.orientations = np.zeros(shape=(len(self.actors),), dtype=np.int32)
+        self.orientations = np.zeros(shape=(self.num_actors,), dtype=np.int32)
         # Only used, if `state_representation`=='cam'.
-        self.cam_pixels = np.zeros(shape=(len(self.actors), self.n_row, self.n_col, 3), dtype=np.int32)
-
-        # Reset ourselves.
-        for i in range(len(self.actors)):
-            self.state[i] = self._reset(actor_slot=i, randomize=False)
+        self.cam_pixels = np.zeros(shape=(self.num_actors, self.n_row, self.n_col, 3), dtype=np.int32)
 
         # Init pygame (if installed) for visualizations.
-        if pygame is not None:
-            self.pygame_field_size = 30
-            pygame.init()
-            self.pygame_agent = pygame.image.load(
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/agent.png")
-            )
-            # Create basic grid Surface for reusage.
-            self.pygame_basic_surface = self._grid_to_surface()
-            self.pygame_display_set = False
+        #if pygame is not None:
+        #    self.pygame_field_size = 30
+        #    pygame.init()
+        #    self.pygame_agent = pygame.image.load(
+        #        os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/agent.png")
+        #    )
+        #    # Create basic grid Surface for re-usage.
+        #    self.pygame_basic_surface = self._grid_to_surface()
+        #    self.pygame_display_set = False
 
     @property
     def x(self):
@@ -226,29 +246,7 @@ class GridWorld(SingleActorEnv):
         np.random.seed(seed)
         return seed
 
-    def _reset(self, actor_slot, randomize=False):
-        """
-        Args:
-            randomize (bool): Whether to start the new episode in a random position (instead of "S").
-                This could be an empty space (" "), the default start ("S") or a fire field ("F").
-
-        Returns:
-            any: The (single Actor/non-batched) state after the reset.
-        """
-        if randomize is False:
-            self.discrete_pos[actor_slot] = self.default_start_pos
-        else:
-            # Move to a random first position (" ", "S", or "F" (ouch!) are all ok to start in).
-            while True:
-                self.discrete_pos[actor_slot] = random.choice(range(self.n_row * self.n_col))
-                if self.worlds[actor_slot, self.y, self.x] in [" ", "S", "F"]:
-                    break
-
-        self.orientations[actor_slot] = 0
-
-        return self._refresh_state(actor_slot)
-
-    def _act(self, actions):  #, set_discrete_pos=None):
+    def _synchronous_act(self, actions):
         """
         Action map:
         0: up
@@ -262,7 +260,7 @@ class GridWorld(SingleActorEnv):
                 For "ftj": A dict with keys: "turn" (0 (turn left), 1 (no turn), 2 (turn right)), "forward"
                     (0 (backward), 1(stay), 2 (forward)) and "jump" (0/False (no jump) and 1/True (jump)).
 
-            set_discrete_pos (Optional[int]): An integer to set the current discrete position to before acting.
+            #set_discrete_pos (Optional[int]): An integer to set the current discrete position to before acting.
 
         Returns:
             tuple: State Space (Space), reward (float), is_terminal (bool), info (usually None).
@@ -333,44 +331,70 @@ class GridWorld(SingleActorEnv):
 
         # Determine reward and done flag.
         next_state_types = self.worlds[np.arange(len(next_x)), next_y, next_x]
+        states, rewards, terminals = [], [], []
         for i, next_state_type in enumerate(next_state_types):
             if next_state_type == "H":
-                self.terminal[i] = True
-                self.reward[i] = -5 if self.reward_function == "sparse" else -10
-                self.state[i] = self._reset(i)  # Flow logic (if terminal, state is the new state of a new episode).
+                terminals.append(True)
+                rewards.append(-5 if self.reward_function == "sparse" else -10)
+                states.append(self._single_reset(i))
             elif next_state_type == "F":
-                self.terminal[i] = False
-                self.reward[i] = -3 if self.reward_function == "sparse" else -10
-                self.state[i] = self._refresh_state(i)
+                terminals.append(False)
+                rewards.append(-3 if self.reward_function == "sparse" else -10)
+                states.append(self._refresh_state(i))
             elif next_state_type in [" ", "S"]:
-                self.terminal[i] = False
-                self.reward[i] = -0.1
-                self.state[i] = self._refresh_state(i)
+                terminals.append(False)
+                rewards.append(-0.1)
+                states.append(self._refresh_state(i))
             elif next_state_type == "G":
-                self.terminal[i] = True
-                self.reward[i] = 1 if self.reward_function == "sparse" else 50
-                self.state[i] = self._reset(i)  # Flow logic (if terminal, state is the new state of a new episode).
+                terminals.append(True)
+                rewards.append(1 if self.reward_function == "sparse" else 50)
+                states.append(self._single_reset(i))
             else:
                 raise NotImplementedError
 
-    def render(self, num_actors=None, mode="human"):
-        actor_slot = 0
-        if mode == "human" and pygame is not None:
-            self.render_human(actor_slot=actor_slot)
-        else:
-            print(self.render_txt(actor_slot=actor_slot))
+        return states, rewards, terminals
 
-    def render_human(self, actor_slot=0):
-        # Set pygame's display, if not already done.
-        # TODO: Fix for more than 1 actors.
-        if self.pygame_display_set is False:
-            pygame.display.set_mode((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size))
-            self.pygame_display_set = True
-        surface = self.pygame_basic_surface.copy()
-        surface.blit(self.pygame_agent, (self.x[actor_slot] * self.pygame_field_size + 1, self.y[actor_slot] * self.pygame_field_size + 1))
-        pygame.display.get_surface().blit(surface, (0, 0))
-        pygame.display.flip()
-        pygame.event.get([])
+    def _single_reset(self, actor_slot, randomize=False):
+        """
+        Args:
+            randomize (bool): Whether to start the new episode in a random position (instead of "S").
+                This could be an empty space (" "), the default start ("S") or a fire field ("F").
+
+        Returns:
+            any: The (single Actor/non-batched) state after the reset.
+        """
+        if randomize is False:
+            self.discrete_pos[actor_slot] = self.default_start_pos
+        else:
+            # Move to a random first position (" ", "S", or "F" (ouch!) are all ok to start in).
+            while True:
+                self.discrete_pos[actor_slot] = random.choice(range(self.n_row * self.n_col))
+                if self.worlds[actor_slot, self.y, self.x] in [" ", "S", "F"]:
+                    break
+
+        self.orientations[actor_slot] = 0
+
+        return self._refresh_state(actor_slot)
+
+    def _single_render(self, num_actors=None, mode="human"):
+        actor_slot = 0
+        #if mode == "human" and pygame is not None:
+        #    self.render_human(actor_slot=actor_slot)
+        #else:
+        print(self.render_txt(actor_slot=actor_slot))
+
+    #def render_human(self, actor_slot=0):
+    #    # Set pygame's display, if not already done.
+    #    # TODO: Fix for more than 1 actors.
+    #    if self.pygame_display_set is False:
+    #        pygame.display.set_mode((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size))
+    #        self.pygame_display_set = True
+    #    surface = self.pygame_basic_surface.copy()
+    #    surface.blit(self.pygame_agent,
+    #                 (self.x[actor_slot] * self.pygame_field_size + 1, self.y[actor_slot] * self.pygame_field_size + 1))
+    #    pygame.display.get_surface().blit(surface, (0, 0))
+    #    pygame.display.flip()
+    #    pygame.event.get([])
 
     def render_txt(self, actor_slot=0):
         actor = "X"
@@ -389,9 +413,6 @@ class GridWorld(SingleActorEnv):
             txt += "\n"
         txt += "\n"
         return txt
-
-    def __str__(self):
-        return "GridWorld({})".format(self.description)
 
     def _refresh_state(self, actor_slot):
         # Discrete state.
@@ -417,8 +438,8 @@ class GridWorld(SingleActorEnv):
         For now: Implemented as a deterministic MDP.
 
         Args:
-            discrete_pos (int): The discrete positions to return possible next states for.
-            actions (int): The action choices (per-Actor).
+            discrete_pos (np.ndarray[int]): The discrete positions to return possible next states for (per Actor).
+            actions (np.ndarray(int)): The action choices (per Actor).
             in_air (bool): Whether we are actually in the air (jumping) right now (ignore if we come from "H" or "W").
 
         Returns:
@@ -437,7 +458,7 @@ class GridWorld(SingleActorEnv):
         )
         next_pos = self._get_discrete_pos(next_coords[:,0], next_coords[:,1])
         pos_type = self.worlds[:, y, x][:, 0]
-        next_pos_type = self.worlds[np.arange(len(self.actors)), next_coords[:, 1], next_coords[:, 0]]
+        next_pos_type = self.worlds[np.arange(self.num_actors), next_coords[:, 1], next_coords[:, 0]]
         # TODO: Allow stochasticity in this env. Right now, all probs are 1.0.
         return np.expand_dims(np.where(
             np.logical_or(next_pos_type == "W", (in_air is False and np.logical_or(pos_type == "H", pos_type == "G"))),
@@ -575,7 +596,9 @@ class GridWorld(SingleActorEnv):
 
         """
         # Create the png surface.
-        surface = pygame.Surface((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size), flags=pygame.SRCALPHA)
+        surface = pygame.Surface(
+            (self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size), flags=pygame.SRCALPHA
+        )
         surface.fill(pygame.Color("#ffffff"))
         for col in range(self.n_col):
             for row in range(self.n_row):
@@ -606,8 +629,6 @@ class GridWorld(SingleActorEnv):
                     special_field = pygame.image.load(
                         os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/fire.png")
                     )
-                    #special_field = pygame.Surface((field_size, field_size))
-                    #special_field.fill((255, 0, 0) if self.world[row][col] == "H" else (255, 255, 0))
                     surface.blit(special_field, (x, y))
         # Return a png.
         return surface
@@ -621,7 +642,6 @@ class GridWorld(SingleActorEnv):
         surface = self.pygame_basic_surface.copy()
         for s in states:
             x, y = self._get_x_y(s)
-            #pygame.draw.rect(surface, pygame.Color(0, 255, 0, alpha), [x * field_size, y * field_size, field_size, field_size])
             rect = pygame.Surface((self.pygame_field_size - 2, self.pygame_field_size - 2))
             rect.set_alpha(alpha)
             rect.fill(pygame.Color(0, 255, 0))
@@ -658,8 +678,6 @@ class GridWorld(SingleActorEnv):
                                                        "images/arrow_"+("red" if r < 0 else "green")+".png"))
                 arrow_transparent = pygame.Surface((arrow.get_width(), arrow.get_height()), flags=pygame.SRCALPHA)
                 arrow_transparent.fill((255, 255, 255, int(255 * ((abs(r) / max_abs_r) / 2 + 0.5))))
-                #arrow_transparent.set_alpha(int(255 * abs(r) / max_abs_r))
-                #arrow_transparent = pygame.Surface.convert_alpha(arrow_transparent)
                 arrow.blit(arrow_transparent, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self._add_field_connector(surface, x, x_, y, y_, arrow)
         pygame.image.save(surface, "test_rewards_trajectory.png")

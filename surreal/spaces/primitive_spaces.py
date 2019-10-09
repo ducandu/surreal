@@ -16,6 +16,7 @@
 
 from abc import ABCMeta
 import numpy as np
+import tensorflow as tf
 
 from surreal.spaces.space import Space
 from surreal.utils.util import convert_dtype, LARGE_INTEGER
@@ -109,10 +110,10 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
         # Samples is already assumed to be batched. Return as is.
         return samples, False
 
-    def get_shape(self, include_main_axes=False, **kwargs):
+    def get_shape(self, include_main_axes=False, main_axis_value=None, **kwargs):
         shape = []
         if include_main_axes is True:
-            shape = [None if v is True else v for v in self.main_axes.values()]
+            shape = [main_axis_value if v is True else v for v in self.main_axes.values()]
         return tuple(shape) + self.shape
 
     @property
@@ -173,6 +174,10 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
             #    variable._time_rank = 1 if self.time_major is False else 0
             return variable
         """
+
+    def create_keras_input(self):
+        # TODO: This may fail for time-rank or more than just batch rank?
+        return tf.keras.Input(shape=self.shape, dtype=self.dtype)
 
     def zeros(self, size=None):
         return self.sample(size=size, fill_value=0)

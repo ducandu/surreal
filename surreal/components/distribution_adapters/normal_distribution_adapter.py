@@ -14,11 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 
-from math import log
 import tensorflow as tf
 
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
-from surreal.utils.util import SMALL_NUMBER
+from surreal.utils.util import MIN_LOG_STDDEV, MAX_LOG_STDDEV
 
 
 class NormalDistributionAdapter(DistributionAdapter):
@@ -40,7 +39,7 @@ class NormalDistributionAdapter(DistributionAdapter):
 
     def get_parameters_from_adapter_outputs(self, adapter_outputs):
         mean, log_sd = tf.split(adapter_outputs, num_or_size_splits=2, axis=-1)
-        log_sd = tf.clip_by_value(log_sd, log(SMALL_NUMBER), -log(SMALL_NUMBER))
+        log_sd = tf.clip_by_value(log_sd, MIN_LOG_STDDEV, MAX_LOG_STDDEV)
         # Turn log sd into sd to ascertain always positive stddev values.
         sd = tf.math.exp(log_sd)
 

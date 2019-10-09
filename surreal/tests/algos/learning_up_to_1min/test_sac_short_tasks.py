@@ -13,39 +13,41 @@
 # limitations under the License.
 # ==============================================================================
 
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 import unittest
 
-from surreal.algos.dddqn import DDDQN, DDDQNConfig, dueling
-from surreal.components import Preprocessor
+from surreal.algos.sac import SAC, SACConfig
+from surreal.components.preprocessors.preprocessor import Preprocessor
 import surreal.debug as debug
-from surreal.envs import GridWorld, OpenAIGymEnv
-from surreal.utils.numpy import one_hot
+from surreal.envs import OpenAIGymEnv, GridWorld
+from surreal.tests.test_util import check
 
 
-class TestDDDQNShortLearningTasks(unittest.TestCase):
+class TestSACShortLearningTasks(unittest.TestCase):
     """
-    Tests the DDDQN algo on shorter-than-1min learning problems.
+    Tests the SAC algo on shorter-than-1min learning problems.
     """
-    def test_dddqn_learning_on_grid_world_2x2(self):
+    def test_sac_learning_on_grid_world_2x2(self):
         # Create an Env object.
         env = GridWorld("2x2", actors=1)
 
-        # Add the preprocessor.
+        # Add the preprocessor (not really necessary, as NN will automatically one-hot, but faster as states
+        # are then stored in memory already preprocessed and won't have to be preprocessed again for batch-updates).
         preprocessor = Preprocessor(
             lambda inputs_: tf.one_hot(inputs_, depth=env.actors[0].state_space.num_categories)
         )
+
         # Create a Config.
-        dqn_config = DDDQNConfig.make(
-            "../configs/dddqn_grid_world_2x2_learning.json",
+        config = SACConfig.make(
+            "../configs/sac_grid_world_2x2_learning.json",
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
 
         # Create an Algo object.
-        algo = DDDQN(config=dqn_config, name="my-dddqn")
+        algo = SAC(config=config, name="my-sac")
 
         # Point actor(s) to the algo.
         for actor in env.actors:
@@ -57,42 +59,63 @@ class TestDDDQNShortLearningTasks(unittest.TestCase):
         # Check last n episode returns.
         mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 >= 0.6)
-
-        # Check learnt Q-function (using our dueling layer).
-        a_and_v = algo.Q(one_hot(np.array([0, 0, 0, 0, 1, 1, 1, 1]), depth=4))
-        q = dueling(a_and_v, np.array([0, 1, 2, 3, 0, 1, 2, 3]))
-        self.assertTrue(q[1] < min(q[2:]) and q[1] < q[0])  # q(s=0,a=right) is the worst
-        self.assertTrue(q[5] > max(q[:4]) and q[5] > max(q[6:]))  # q(s=1,a=right) is the best
-        #check(q, [0.8, -5.0, 0.9, 0.8, 0.8, 1.0, 0.9, 0.9], decimals=1)  # a=up,down,left,right
+        self.assertTrue(mean_last_10 >= 0.8)
 
         env.terminate()
 
-    def test_dddqn_learning_on_cart_pole_with_4_actors(self):
+    def test_sac_learning_on_cart_pole_with_n_actors(self):
         # Create an Env object.
-        env = OpenAIGymEnv("CartPole-v0", actors=4)
+        env = OpenAIGymEnv("CartPole-v0", actors=1)
 
         # Create a Config.
-        dqn_config = DDDQNConfig.make(
-            "../configs/dddqn_cart_pole_learning_n_actors.json",  # TODO: filename wrong (num actors)
+        config = SACConfig.make(
+            "../configs/sac_cart_pole_learning_n_actors.json",
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
 
         # Create an Algo object.
-        algo = DDDQN(config=dqn_config, name="my-dqn")
+        algo = SAC(config=config, name="my-sac")
 
         # Point actor(s) to the algo.
         for actor in env.actors:
             actor.set_algo(algo)
 
         # Run and wait for env to complete.
-        env.run(ticks=2000, sync=True, render=debug.RenderEnvInLearningTests)
+        env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
         last_n = 10
         mean_last_episodes = np.mean(env.historic_episodes_returns[-last_n:])
         print("Avg return over last {} episodes: {}".format(last_n, mean_last_episodes))
-        self.assertTrue(mean_last_episodes > 150.0)
+        self.assertTrue(mean_last_episodes > 160.0)
+
+        env.terminate()
+
+    def test_sac_learning_on_pendulum(self):
+        # Create an Env object.
+        env = OpenAIGymEnv("Pendulum-v0", actors=1)
+
+        # Create a Config.
+        config = SACConfig.make(
+            "../configs/sac_pendulum_learning.json",
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space
+        )
+
+        # Create an Algo object.
+        algo = SAC(config=config, name="my-sac")
+
+        # Point actor(s) to the algo.
+        for actor in env.actors:
+            actor.set_algo(algo)
+
+        # Run and wait for env to complete.
+        env.run(ticks=10000, sync=True, render=debug.RenderEnvInLearningTests)
+
+        # Check last n episode returns.
+        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
+        print("Avg return over last 10 episodes: {}".format(mean_last_10))
+        self.assertTrue(mean_last_10 >= -200.0)
 
         env.terminate()

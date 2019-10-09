@@ -82,13 +82,14 @@ class Space(Makeable, metaclass=ABCMeta):
         return self._shape
 
     @abstractmethod
-    def get_shape(self, include_main_axes=False, **kwargs):
+    def get_shape(self, include_main_axes=False, main_axis_value=None, **kwargs):
         """
-        Returns the shape of this Space as a tuple with certain additional ranks at the front (batch) or the back
-        (e.g. categories).
+        Returns the shape of this Space as a tuple with certain additional axes at the front (main-axes) or the back
+        (e.g. categories in Int Spaces).
 
         Args:
-            include_main_axes (bool): Whether to include all main-axes in the returned tuple.
+            include_main_axes (bool): Whether to include all main-axes in the returned tuple as None.
+            main_axis_value (any): The value to use for the main-axes iff `include_main_axes` is True.
 
         Returns:
             tuple: The shape of this Space as a tuple.
@@ -99,10 +100,19 @@ class Space(Makeable, metaclass=ABCMeta):
     def rank(self):
         """
         Returns:
-            int: The rank of the Space, not including batch- or time-ranks
-            (e.g. 3 for a space with shape=(10, 7, 5)).
+            int: The rank of the Space, not including main-axes
+            (e.g. 3 for a space with shape=(10, 7, 5) OR 2 for a space with shape=(1,2) and main-axes "B" and "T").
         """
         return len(self.shape)
+
+    @property
+    def reduction_axes(self):
+        """
+        Returns:
+            List[int]: A list of axes to be reduced by any tf.reduce... operation sparing out the main-axes.
+                E.g.: [-1, -2, -3] for a space with shape=(2,4,6) and any number of main_axes.
+        """
+        return list(reversed(range(-self.rank, 0)))
 
     @abstractmethod
     def structure(self):
@@ -275,6 +285,10 @@ class Space(Makeable, metaclass=ABCMeta):
         Returns:
             any: A Tensor Variable/Placeholder.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_keras_input(self):
         raise NotImplementedError
 
     def get_top_level_container(self):

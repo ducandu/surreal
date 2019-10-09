@@ -22,11 +22,14 @@ from surreal.components.distributions.distribution import Distribution
 
 class GumbelSoftmax(Distribution):
     """
-    The Gumbel Softmax distribution is also known as a relaxed one-hot categorical or concrete distribution.
+    The Gumbel Softmax distribution [1] (also known as the Concrete [2] distribution) is a close cousin of the relaxed
+    one-hot categorical distribution, whose tfp implementation we will use here plus
+    adjusted `sample_...` and `prob/log_prob` methods.
+    See discussion at: https://stackoverflow.com/questions/56226133/soft-actor-critic-with-discrete-action-space
 
-    Gumbel Softmax: https://arxiv.org/abs/1611.01144
-
-    Concrete: https://arxiv.org/abs/1611.00712
+    [1] Categorical Reparametrization with Gumbel-Softmax (Jang et al, 2017): https://arxiv.org/abs/1611.01144
+    [2] The Concrete Distribution: A Continuous Relaxation of Discrete Random Variables (Maddison et al, 2017)
+        https://arxiv.org/abs/1611.00712
     """
     def __init__(self, temperature=1.0):
         """
@@ -43,15 +46,37 @@ class GumbelSoftmax(Distribution):
         return tfp.distributions.RelaxedOneHotCategorical(temperature=self.temperature, logits=parameters)
 
     def _sample_deterministic(self, distribution):
+        raise NotImplementedError
+        ## Cast to float again because this is called from a tf.cond where the other option calls a stochastic
+        ## sample returning a float.
+        #argmax = tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32)
+        #sample = tf.cast(argmax, dtype=tf.float32)
+        ## Argmax turns (?, n) into (?,), not (?, 1)
+        ## TODO: What if we have a time rank as well?
+        #if len(sample.shape) == 1:
+        #    sample = tf.expand_dims(sample, -1)
+        #return sample
+
+    #def _sample_stochastic(self, distribution, seed=None):
+    #    """
+    #    Returns the argmax (int) of a RelaxedOneHotCategorical-sampled relaxed one-hot vector.
+    #    """
+    #    noise = tf.random.uniform(shape=distribution.probs.shape)
+    #    noisy_logits = distribution.logits - tf.math.log(-tf.math.log(noise))
+    #    return tf.argmax(noisy_logits, axis=-1)
+
+    def _log_prob(self, distribution, values):
         """
-        Returns the argmax (int) of a relaxed one-hot vector. See `_graph_fn_sample_stochastic` for details.
+        Override since the implementation of tfp.RelaxedOneHotCategorical yields positive values.
         """
-        # Cast to float again because this is called from a tf.cond where the other option calls a stochastic
-        # sample returning a float.
-        argmax = tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32)
-        sample = tf.cast(argmax, dtype=tf.float32)
-        # Argmax turns (?, n) into (?,), not (?, 1)
-        # TODO: What if we have a time rank as well?
-        if len(sample.shape) == 1:
-            sample = tf.expand_dims(sample, -1)
-        return sample
+        if values.shape != distribution.logits.shape:
+            values = tf.cast(tf.one_hot(values, distribution.logits.shape.as_list()[-1]), dtype=tf.float32)
+            assert values.shape == distribution.logits.shape
+        return -tf.reduce_sum(-values * tf.nn.log_softmax(distribution.logits, axis=-1), axis=-1)
+
+    def _prob(self, distribution, values):
+        """
+        TODO
+        """
+        raise NotImplementedError
+

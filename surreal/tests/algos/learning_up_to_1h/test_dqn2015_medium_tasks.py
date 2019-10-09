@@ -32,7 +32,7 @@ class TestDQN2015MediumLearningTasks(unittest.TestCase):
 
         # Create a DQN2015Config.
         dqn_config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_lunar_lander_learning_8_actors.json",
+            "../configs/dqn2015_lunar_lander_learning_n_actors.json",
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
@@ -51,3 +51,5 @@ class TestDQN2015MediumLearningTasks(unittest.TestCase):
         mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
         self.assertTrue(mean_last_10 > 100.0)
+
+        env.terminate()

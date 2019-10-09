@@ -38,8 +38,7 @@ class Distribution(Makeable, metaclass=ABCMeta):
     @abstractmethod
     def parameterize_distribution(self, parameters):
         """
-        Parameterizes this distribution (normally from an NN-output vector). Returns
-        the backend-distribution object.
+        Parametrizes this distribution (normally from an NN-output vector). Returns the tfp Distribution object.
 
         Args:
             parameters (any): The input(s) used to parameterize this distribution. This is normally a cleaned up
@@ -47,7 +46,7 @@ class Distribution(Makeable, metaclass=ABCMeta):
                 distribution).
 
         Returns:
-            any: The parameterized distribution object.
+            tfp.distributions.Distribution: The parameterized distribution object.
         """
         raise NotImplementedError
 
@@ -111,11 +110,11 @@ class Distribution(Makeable, metaclass=ABCMeta):
 
     def _sample(self, distribution, deterministic=False):
         """
-        Takes a sample from the (already parameterized) distribution. The parameterization also includes a possible
+        Takes a sample from the (already parameterized) distribution. The parametrization also includes a possible
         batch size.
 
         Args:
-            distribution (DataOp): The (already parameterized) distribution DataOp to use for
+            distribution (tfp.distributions.Distribution): The (already parameterized) distribution to use for
                 sampling.
 
             deterministic (Union[bool,tf.Tensor]): Whether to return the maximum-likelihood result, instead of a random
@@ -133,7 +132,6 @@ class Distribution(Makeable, metaclass=ABCMeta):
             else:
                 return self._sample_stochastic(distribution)
 
-        #assert self.backend == "tf", "ERROR: If `deterministic` is Tensor, backend must be \"tf\"!"
         return tf.cond(
             pred=deterministic,
             true_fn=lambda: self._sample_deterministic(distribution),
@@ -172,8 +170,8 @@ class Distribution(Makeable, metaclass=ABCMeta):
         Log of the probability density/mass function.
 
         Args:
-            distribution (DataOp): The (already parameterized) distribution whose log-likelihood value
-                to calculate.
+            distribution (tfp.distributions.Distribution): The (already parameterized) distribution whose log-likelihood
+                value to calculate.
 
             values (any): Values for which to compute the log probabilities/likelihoods.
 
@@ -187,8 +185,8 @@ class Distribution(Makeable, metaclass=ABCMeta):
         Probability density/mass function.
 
         Args:
-            distribution (DataOp): The (already parameterized) distribution whose likelihood value
-                to calculate.
+            distribution (tfp.distributions.Distribution): The (already parameterized) distribution whose likelihood
+                value to calculate.
 
             values (any): Values for which to compute the probabilities/likelihoods.
 
@@ -199,16 +197,16 @@ class Distribution(Makeable, metaclass=ABCMeta):
 
     def _kl_divergence(self, distribution, distribution_b):
         """
-        Kullback-Leibler divergence between two distribution objects.
+        Kullback-Leibler (KL) divergence between two distribution objects.
 
         Args:
-            distribution (tf.Distribution): The (already parameterized) distribution 1.
-            distribution_b (tf.Distribution): The other distribution object.
+            distribution (tf.distributions.Distribution): The (already parameterized) distribution 1.
+            distribution_b (tf.distributions.Distribution): The other distribution object.
 
         Returns:
-            DataOp: (batch-wise) KL-divergence between the two distributions.
+            any: The KL-divergence between the two distributions.
         """
-        return tf.no_op()
+        pass
         # TODO: never tested. tf throws error: NotImplementedError: No KL(distribution_a || distribution_b) registered for distribution_a type Bernoulli and distribution_b type ndarray
         #return tf.distributions.kl_divergence(
         #    distribution_a=distribution_a,

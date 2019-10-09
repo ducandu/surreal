@@ -28,16 +28,16 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
     """
     Tests the DQN2015 algo on shorter-than-1min learning problems.
     """
-    def test_learning_on_grid_world(self):
+    def test_dqn2015_learning_on_grid_world(self):
         # Create an Env object.
-        env = GridWorld("2x2", actors=1)
+        env = GridWorld("2x2")
 
         # Add the preprocessor.
         preprocessor = Preprocessor(
             lambda inputs_: tf.one_hot(inputs_, depth=env.actors[0].state_space.num_categories)
         )
-        # Create a DQN2015Config.
-        dqn_config = DQN2015Config.make(  # type: DQN2015Config
+        # Create a Config.
+        config = DQN2015Config.make(  # type: DQN2015Config
             "../configs/dqn2015_grid_world_2x2_learning.json",
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
@@ -45,7 +45,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         )
 
         # Create an Algo object.
-        algo = DQN2015(config=dqn_config, name="my-dqn")
+        algo = DQN2015(config=config, name="my-dqn")
 
         # Point actor(s) to the algo.
         for actor in env.actors:
@@ -64,7 +64,9 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
             np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
         ), [[0.8, -5.0, 0.9, 0.8], [0.8, 1.0, 0.9, 0.9]], decimals=1)  # a=up,down,left,right
 
-    def test_learning_on_4x4_grid_world_with_8_actors(self):
+        env.terminate()
+
+    def test_dqn2015_learning_on_4x4_grid_world_with_n_actors(self):
         # Create an Env object.
         env = GridWorld("4x4", actors=8)
 
@@ -73,16 +75,16 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
             lambda inputs_: tf.one_hot(inputs_, depth=env.actors[0].state_space.num_categories)
         )
 
-        # Create a DQN2015Config.
-        dqn_config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_grid_world_4x4_learning_8_actors.json",
+        # Create a Config.
+        config = DQN2015Config.make(  # type: DQN2015Config
+            "../configs/dqn2015_grid_world_4x4_learning_n_actors.json",
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
 
         # Create an Algo object.
-        algo = DQN2015(config=dqn_config, name="my-dqn")
+        algo = DQN2015(config=config, name="my-dqn")
 
         # Point actor(s) to the algo.
         for actor in env.actors:
@@ -101,19 +103,21 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         self.assertTrue(action_values[0][2] >= 0.0)
         self.assertTrue(action_values[1][2] >= 0.0)
 
-    def test_learning_on_cart_pole_with_4_actors(self):
-        # Create an Env object.
-        env = OpenAIGymEnv("CartPole-v0", actors=4)
+        env.terminate()
 
-        # Create a DQN2015Config.
-        dqn_config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_cart_pole_learning_4_actors.json",
+    def test_dqn2015_learning_on_cart_pole_with_n_actors(self):
+        # Create an Env object.
+        env = OpenAIGymEnv("CartPole-v0", actors=4, num_cores=None)
+
+        # Create a Config.
+        config = DQN2015Config.make(  # type: DQN2015Config
+            "../configs/dqn2015_cart_pole_learning_n_actors.json",
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
 
         # Create an Algo object.
-        algo = DQN2015(config=dqn_config, name="my-dqn")
+        algo = DQN2015(config=config, name="my-dqn")
 
         # Point actor(s) to the algo.
         for actor in env.actors:
@@ -126,3 +130,5 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
         self.assertTrue(mean_last_10 > 130.0)
+
+        env.terminate()

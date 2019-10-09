@@ -14,23 +14,23 @@
   "q_network": [
     {
       "name": "dense",
-      "units": 128,
+      "units": 64,
       "activation": "tanh"
     },
     {
       "name": "dense",
-      "units": 128,
+      "units": 64,
       "activation": "tanh"
     }
   ],
 
   "update_frequency": 4,
-  "steps_before_update": 0,
+  "update_after": 0,
   "sync_frequency": 256,
 
   "optimizer": {
     "type": "adam",
-    "learning_rate": [0.01, 0.00001],
+    "learning_rate": [0.003, 0.00001],
     "clip_norm": 40
   }
 }

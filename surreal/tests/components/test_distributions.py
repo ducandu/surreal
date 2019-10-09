@@ -14,157 +14,160 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import, division, print_function
-
-import unittest
-
 import numpy as np
 from scipy.stats import norm, beta
-from rlgraph.components.distributions import *
-from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
-from rlgraph.utils.numpy import softmax
+import unittest
+
+from surreal.components.distributions import *
+from surreal.spaces import Float, Int, Tuple
+from surreal.tests import check
+from surreal.utils.numpy import softmax, sigmoid
+from surreal.utils.util import MIN_LOG_STDDEV, MAX_LOG_STDDEV
 
 
 class TestDistributions(unittest.TestCase):
-
-    # TODO also not portable to PyTorch due to batch shapes.
-    # TODO: test entropies.
-
+    """
+    Tests our various distribution classes passing them parameterization input that would normally come from
+    their respective adapters.
+    """
     def test_bernoulli(self):
         # Create 5 bernoulli distributions (or a multiple thereof if we use batch-size > 1).
-        param_space = FloatBox(shape=(5,), add_batch_rank=True)
-        values_space = BoolBox(shape=(5,), add_batch_rank=True)
+        param_space = Float(-1.0, 1.0, shape=(5,), main_axes="B")
 
         # The Component to test.
-        bernoulli = Bernoulli(switched_off_apis={"kl_divergence"})
-        input_spaces = dict(
-            parameters=param_space,
-            values=values_space,
-            deterministic=bool,
-        )
-        test = ComponentTest(component=bernoulli, input_spaces=input_spaces)
-
+        bernoulli = Bernoulli()
         # Batch of size=6 and deterministic (True).
-        input_ = [input_spaces["parameters"].sample(6), True]
-        expected = input_[0] > 0.5
+        input_ = param_space.sample(6)
+        expected = sigmoid(input_) > 0.5
         # Sample n times, expect always max value (max likelihood for deterministic draw).
         for _ in range(10):
-            test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+            out = bernoulli.sample(input_, deterministic=True)
+            check(out, expected)
+            out = bernoulli.sample_deterministic(input_)
+            check(out, expected)
 
         # Batch of size=6 and non-deterministic -> expect roughly the mean.
-        input_ = [input_spaces["parameters"].sample(6), False]
+        input_ = param_space.sample(6)
         outs = []
-        for _ in range(20):
-            out = test.test(("draw", input_))
+        for _ in range(100):
+            out = bernoulli.sample(input_, deterministic=False)
             outs.append(out)
-            out = test.test(("sample_stochastic", input_[0]))
+            out = bernoulli.sample_stochastic(input_)
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(outs), 0.5, decimals=1)
+        check(np.mean(outs), 0.5, decimals=1)
+
+        logits = np.array([[0.1, -0.2, 0.3, -4.4, 2.0]])
+        probs = sigmoid(logits)
 
         # Test log-likelihood outputs.
-        test.test(("log_prob", [
-            np.array([[0.1, 0.2, 0.3, 0.4, 0.5]]),
-            np.array([[True, False, False, True, True]])
-            # probability that result is the given value
-        ]), expected_outputs=np.log(np.array([[0.1, 0.8, 0.7, 0.4, 0.5]])))
+        values = np.array([[True, False, False, True, True]])
+        out = bernoulli.log_prob(logits, values=values)
+        expected_log_probs = np.log(np.where(values, probs, 1.0 - probs))
+        check(out, expected_log_probs)
 
         # Test entropy outputs.
-        input_ = np.array([[0.1, 0.2, 0.3, 0.4, 0.5]])
         # Binary Entropy with natural log.
-        expected_entropy = -(input_ * np.log(input_)) - ((1.0 - input_) * np.log(1.0 - input_))
-        test.test(("entropy", input_), expected_outputs=expected_entropy)
+        expected_entropy = -(probs * np.log(probs)) - ((1.0 - probs) * np.log(1.0 - probs))
+        out = bernoulli.entropy(logits)
+        check(out, expected_entropy)
 
     def test_categorical(self):
         # Create 5 categorical distributions of 3 categories each.
-        param_space = FloatBox(shape=(5, 3), low=-1.0, high=2.0, add_batch_rank=True)
-        values_space = IntBox(3, shape=(5,), add_batch_rank=True)
+        param_space = Float(shape=(5, 3), low=-1.0, high=2.0, main_axes="B")
+        values_space = Int(3, shape=(5,), main_axes="B")
 
         # The Component to test.
-        categorical = Categorical(switched_off_apis={"kl_divergence"})
-        input_spaces = dict(
-            parameters=param_space,
-            values=values_space,
-            deterministic=bool,
-        )
-        test = ComponentTest(component=categorical, input_spaces=input_spaces)
+        categorical = Categorical()
 
         # Batch of size=3 and deterministic (True).
-        input_ = [input_spaces["parameters"].sample(3), True]
-        expected = np.argmax(input_[0], axis=-1)
+        input_ = param_space.sample(3)
+        expected = np.argmax(input_, axis=-1)
         # Sample n times, expect always max value (max likelihood for deterministic draw).
         for _ in range(10):
-            test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+            out = categorical.sample(input_, deterministic=True)
+            check(out, expected)
+            out = categorical.sample_deterministic(input_)
+            check(out, expected)
 
         # Batch of size=3 and non-deterministic -> expect roughly the mean.
-        input_ = [input_spaces["parameters"].sample(3), False]
+        input_ = param_space.sample(3)
         outs = []
-        for _ in range(20):
-            out = test.test(("draw", input_))
+        for _ in range(100):
+            out = categorical.sample(input_, deterministic=False)
             outs.append(out)
-            out = test.test(("sample_stochastic", input_[0]))
+            out = categorical.sample_stochastic(input_)
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(outs), 1.0, decimals=1)
+        check(np.mean(outs), 1.0, decimals=1)
+
+        input_ = param_space.sample(1)
+        probs = softmax(input_)
+        values = values_space.sample(1)
 
         # Test log-likelihood outputs.
-        input_ = param_space.sample(1)
-        labels = values_space.sample(1)
-        probs = softmax(input_)
-        test.test(("log_prob", [input_, labels]), expected_outputs=np.log(np.array([[
-            probs[0][0][labels[0][0]], probs[0][1][labels[0][1]], probs[0][2][labels[0][2]],
-            probs[0][3][labels[0][3]], probs[0][4][labels[0][4]]
+        out = categorical.log_prob(input_, values)
+        check(out, np.log(np.array([[
+            probs[0][0][values[0][0]], probs[0][1][values[0][1]], probs[0][2][values[0][2]],
+            probs[0][3][values[0][3]], probs[0][4][values[0][4]]
         ]])), decimals=4)
+
+        # Test entropy outputs.
+        out = categorical.entropy(input_)
+        expected_entropy = - np.sum(probs * np.log(probs), axis=-1)
+        check(out, expected_entropy)
 
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
         param_space = Tuple(
-            FloatBox(shape=(5,)),  # mean
-            FloatBox(shape=(5,)),  # stddev
-            add_batch_rank=True
+            Float(shape=(5,)),  # mean
+            Float(shape=(5,)),  # stddev
+            main_axes="B"
         )
-        values_space = FloatBox(shape=(5,), add_batch_rank=True)
-        input_spaces = dict(
-            parameters=param_space,
-            values=values_space,
-            deterministic=bool,
-        )
+        values_space = Float(shape=(5,), main_axes="B")
 
         # The Component to test.
-        normal = Normal(switched_off_apis={"kl_divergence"})
-        test = ComponentTest(component=normal, input_spaces=input_spaces)
+        normal = Normal()
 
         # Batch of size=2 and deterministic (True).
-        input_ = [param_space.sample(2), True]
-        expected = input_[0][0]  # 0 = mean
+        input_ = param_space.sample(2)
+        expected = input_[0]  # 0 = mean
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
+            out = normal.sample(input_, deterministic=True)
+            check(out, expected)
+            normal.sample_deterministic(input_)
+            check(out, expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [param_space.sample(1), False]
+        input_ = param_space.sample(1)
         expected = input_[0][0]  # 0 = mean
         outs = []
-        for _ in range(50):
-            out = test.test(("draw", input_))
+        for _ in range(100):
+            out = normal.sample(input_, deterministic=False)
             outs.append(out)
-            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            out = normal.sample_stochastic(input_)
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+        check(np.mean(outs), expected.mean(), decimals=1)
+
+        means = np.array([[0.1, 0.2, 0.3, 0.4, 50.0]])
+        log_stds = np.array([[0.8, -0.2, 0.3, -1.0, 10.0]])
+        # The normal-adapter does this following line with the NN output (interpreted as log(stddev)):
+        # Doesn't really matter here in this test case, though.
+        stds = np.exp(np.clip(log_stds, a_min=MIN_LOG_STDDEV, a_max=MAX_LOG_STDDEV))
+        values = np.array([[1.0, 2.0, 0.4, 10.0, 5.4]])
 
         # Test log-likelihood outputs.
-        means = np.array([[0.1, 0.2, 0.3, 0.4, 100.0]])
-        stds = np.array([[0.8, 0.2, 0.3, 2.0, 50.0]])
-        values = np.array([[1.0, 2.0, 0.4, 10.0, 5.4]])
-        test.test(
-            ("log_prob", [tuple([means, stds]), values]),
-            expected_outputs=np.log(norm.pdf(values, means, stds)), decimals=4
-        )
+        out = normal.log_prob((means, stds), values)
+        expected_outputs = np.log(norm.pdf(values, means, stds))
+        check(out, expected_outputs)
+
+        # Test entropy outputs.
+        out = normal.entropy((means, stds))
+        # See: https://en.wikipedia.org/wiki/Normal_distribution#Maximum_entropy
+        expected_entropy = 0.5 * (1 + np.log(2 * np.square(stds) * np.pi))
+        check(out, expected_entropy)
 
     def test_multivariate_normal(self):
         # Create batch0=n (batch-rank), batch1=2 (can be used for m mixed Gaussians), num-events=3 (trivariate)
@@ -172,99 +175,96 @@ class TestDistributions(unittest.TestCase):
         num_events = 3  # 3=trivariate Gaussian
         num_mixed_gaussians = 2  # 2x trivariate Gaussians (mixed)
         param_space = Tuple(
-            FloatBox(shape=(num_mixed_gaussians, num_events)),  # mean
-            FloatBox(shape=(num_mixed_gaussians, num_events)),  # diag (variance)
-            add_batch_rank=True
+            Float(shape=(num_mixed_gaussians, num_events)),  # mean
+            Float(shape=(num_mixed_gaussians, num_events)),  # diag (variance)
+            main_axes="B"
         )
-        values_space = FloatBox(shape=(num_mixed_gaussians, num_events), add_batch_rank=True)
-        input_spaces = dict(
-            parameters=param_space,
-            values=values_space,
-            deterministic=bool,
-        )
+        values_space = Float(shape=(num_mixed_gaussians, num_events), main_axes="B")
 
         # The Component to test.
-        multivariate_normal = MultivariateNormal(switched_off_apis={"kl_divergence"})
-        test = ComponentTest(component=multivariate_normal, input_spaces=input_spaces)
+        multivariate_normal = MultivariateNormal()
 
-        input_ = [input_spaces["parameters"].sample(4), True]
-        expected = input_[0][0]  # 0=mean
+        input_ = param_space.sample(4)
+        expected = input_[0]  # 0=mean
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
+            out = multivariate_normal.sample(input_, deterministic=True)
+            check(out, expected)
+            out = multivariate_normal.sample_deterministic(input_)
+            check(out, expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [input_spaces["parameters"].sample(1), False]
-        expected = input_[0][0]  # 0=mean
+        input_ = param_space.sample(1)
+        expected = input_[0]  # 0=mean
         outs = []
-        for _ in range(50):
-            out = test.test(("draw", input_))
+        for _ in range(100):
+            out = multivariate_normal.sample(input_, deterministic=False)
             outs.append(out)
-            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            out = multivariate_normal.sample_stochastic(input_)
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+        check(np.mean(outs), expected.mean(), decimals=1)
 
-        # Test log-likelihood outputs (against scipy).
         means = values_space.sample(2)
         stds = values_space.sample(2)
         values = values_space.sample(2)
-        test.test(
-            ("log_prob", [tuple([means, stds]), values]),
-            # Sum up the individual log-probs as we have a diag (independent) covariance matrix.
-            expected_outputs=np.sum(np.log(norm.pdf(values, means, stds)), axis=-1), decimals=4
-        )
+
+        # Test log-likelihood outputs (against scipy).
+        out = multivariate_normal.log_prob((means, stds), values)
+        # Sum up the individual log-probs as we have a diag (independent) covariance matrix.
+        check(out, np.sum(np.log(norm.pdf(values, means, stds)), axis=-1), decimals=4)
+
+        # TODO: entropy and KL-Divergence test cases.
 
     def test_beta(self):
         # Create 5 beta distributions (2 parameters (alpha and beta) each).
         param_space = Tuple(
-            FloatBox(shape=(5,)),  # alpha
-            FloatBox(shape=(5,)),  # beta
-            add_batch_rank=True
+            Float(shape=(5,)),  # alpha
+            Float(shape=(5,)),  # beta
+            main_axes="B"
         )
-        values_space = FloatBox(shape=(5,), add_batch_rank=True)
-        input_spaces = dict(
-            parameters=param_space,
-            values=values_space,
-            deterministic=bool,
-        )
+        values_space = Float(shape=(5,), main_axes="B")
 
         # The Component to test.
         low, high = -1.0, 2.0
-        beta_distribution = Beta(low=low, high=high, switched_off_apis={"kl_divergence"})
-        test = ComponentTest(component=beta_distribution, input_spaces=input_spaces)
+        beta_distribution = Beta(low=low, high=high)
 
         # Batch of size=2 and deterministic (True).
-        input_ = [input_spaces["parameters"].sample(2), True]
+        input_ = param_space.sample(2)
         # Mean for a Beta distribution: 1 / [1 + (beta/alpha)]
-        expected = (1.0 / (1.0 + input_[0][1] / input_[0][0])) * (high - low) + low
+        expected = (1.0 / (1.0 + input_[1] / input_[0])) * (high - low) + low
         # Sample n times, expect always mean value (deterministic draw).
-        for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected, decimals=5)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected, decimals=5)
+        for _ in range(100):
+            out = beta_distribution.sample(input_, deterministic=True)
+            check(out, expected)
+            out = beta_distribution.sample_deterministic(input_)
+            check(out, expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [input_spaces["parameters"].sample(1), False]
-        expected = (1.0 / (1.0 + input_[0][1] / input_[0][0])) * (high - low) + low
+        input_ = param_space.sample(1)
+        expected = (1.0 / (1.0 + input_[1] / input_[0])) * (high - low) + low
         outs = []
-        for _ in range(50):
-            out = test.test(("draw", input_))
+        for _ in range(100):
+            out = beta_distribution.sample(input_, deterministic=False)
             outs.append(out)
-            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            out = beta_distribution.sample_stochastic(input_)
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+        check(np.mean(outs), expected.mean(), decimals=1)
 
-        # Test log-likelihood outputs (against scipy).
         alpha_ = values_space.sample(1)
         beta_ = values_space.sample(1)
         values = values_space.sample(1)
         values_scaled = values * (high - low) + low
-        test.test(
-            ("log_prob", [tuple([alpha_, beta_]), values_scaled]),
-            expected_outputs=np.log(beta.pdf(values, alpha_, beta_)), decimals=4
-        )
+
+        # Test log-likelihood outputs (against scipy).
+        out = beta_distribution.log_prob((alpha_, beta_), values_scaled)
+        check(out, np.log(beta.pdf(values, alpha_, beta_)), decimals=4)
+
+        # Test entropy outputs (against scipy).
+        out = beta_distribution.entropy((alpha_, beta_))
+        # This is tricky and does not seem to match sometimes for all input-slots.
+        check(out, beta.entropy(alpha_, beta_), decimals=2)
 
     def test_mixture(self):
         # Create a mixture distribution consisting of 3 bivariate normals.
@@ -286,9 +286,9 @@ class TestDistributions(unittest.TestCase):
                     FloatBox(shape=(num_events_per_multivariate,)),  # diag
                 ),
             },
-            add_batch_rank=True
+            main_axes="B"
         )
-        values_space = FloatBox(shape=(num_events_per_multivariate,), add_batch_rank=True)
+        values_space = FloatBox(shape=(num_events_per_multivariate,), main_axes="B")
         input_spaces = dict(
             parameters=param_space,
             values=values_space,
@@ -339,7 +339,7 @@ class TestDistributions(unittest.TestCase):
             out = test.test(("sample_stochastic", tuple([input_[0]])))
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(np.array(outs), axis=0), expected, decimals=1)
+        check(np.mean(np.array(outs), axis=0), expected, decimals=1)
 
         # Test log-likelihood outputs (against scipy).
         params = param_space.sample(1)
@@ -356,76 +356,79 @@ class TestDistributions(unittest.TestCase):
         test.test(("log_prob", [params, values]), expected_outputs=np.array([expected]), decimals=1)
 
     def test_squashed_normal(self):
-        param_space = Tuple(
-            FloatBox(shape=(5,)),
-            FloatBox(shape=(5,)),
-            add_batch_rank=True
-        )
-        values_space = FloatBox(shape=(5,), add_batch_rank=True)
-        input_spaces = dict(
-            parameters=param_space,
-            deterministic=bool,
-            values=values_space
-        )
+        param_space = Tuple(Float(shape=(5,)), Float(shape=(5,)), main_axes="B")
 
         low, high = -2.0, 1.0
-        squashed_distribution = SquashedNormal(switched_off_apis={"kl_divergence"}, low=low, high=high)
-        test = ComponentTest(component=squashed_distribution, input_spaces=input_spaces)
+        squashed_distribution = SquashedNormal(low=low, high=high)
 
         # Batch of size=2 and deterministic (True).
-        input_ = [param_space.sample(2), True]
-        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low   # [0] = mean
+        input_ = param_space.sample(2)
+        expected = ((np.tanh(input_[0]) + 1.0) / 2.0) * (high - low) + low   # [0] = mean
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected, decimals=5)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected, decimals=5)
+            out = squashed_distribution.sample(input_, deterministic=True)
+            check(out, expected)
+            out = squashed_distribution.sample_deterministic(input_)
+            check(out, expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [param_space.sample(1), False]
-        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low  # [0] = mean
+        input_ = param_space.sample(1)
+        expected = ((np.tanh(input_[0]) + 1.0) / 2.0) * (high - low) + low  # [0] = mean
         outs = []
         for _ in range(500):
-            out = test.test(("draw", input_))
+            out = squashed_distribution.sample(input_, deterministic=False)
             outs.append(out)
-            self.assertTrue(out.max() <= high)
-            self.assertTrue(out.min() >= low)
-            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            self.assertTrue(np.max(out) <= high)
+            self.assertTrue(np.min(out) >= low)
+            out = squashed_distribution.sample_stochastic(input_)
             outs.append(out)
-            self.assertTrue(out.max() <= high)
-            self.assertTrue(out.min() >= low)
+            self.assertTrue(np.max(out) <= high)
+            self.assertTrue(np.min(out) >= low)
 
-        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+        check(np.mean(outs), expected.mean(), decimals=1)
+
+        means = np.array([[0.1, 0.2, 0.3, 0.4, 50.0], [-0.1, -0.2, -0.3, -0.4, -1.0]])
+        log_stds = np.array([[0.8, -0.2, 0.3, -1.0, 10.0], [0.7, -0.3, 0.4, -0.9, 8.0]])
+        # The normal-adapter does this following line with the NN output (interpreted as log(stddev)):
+        # Doesn't really matter here in this test case, though.
+        stds = np.exp(np.clip(log_stds, a_min=MIN_LOG_STDDEV, a_max=MAX_LOG_STDDEV))
+        # Make sure values are within low and high.
+        values = np.array([[0.9, 0.2, 0.4, -0.1, -1.05], [-0.9, -0.2, 0.4, -0.1, -1.05]])
 
         # Test log-likelihood outputs.
-        means = np.array([[0.1, 0.2, 0.3, 0.4, 5.0]])
-        stds = np.array([[0.8, 0.2, 0.3, 2.0, 4.0]])
-        # Make sure values are within low and high.
-        values = np.array([[0.9, 0.2, 0.4, -0.1, -1.05]])
-
         # TODO: understand and comment the following formula to get the log-prob.
         # Unsquash values, then get log-llh from regular gaussian.
         unsquashed_values = np.arctanh((values - low) / (high - low) * 2.0 - 1.0)
         log_prob_unsquashed = np.log(norm.pdf(unsquashed_values, means, stds))
         log_prob = log_prob_unsquashed - np.sum(np.log(1 - np.tanh(unsquashed_values) ** 2), axis=-1, keepdims=True)
 
-        test.test(("log_prob", [tuple([means, stds]), values]), expected_outputs=log_prob, decimals=4)
+        out = squashed_distribution.log_prob((means, stds), values)
+        check(out, log_prob)
+
+        # Test entropy outputs.
+        # TODO
+        return
+        #out = squashed_distribution.entropy((means, stds))
+        ## See: https://en.wikipedia.org/wiki/Normal_distribution#Maximum_entropy
+        #expected_entropy = 0.5 * (1 + np.log(2 * np.square(stds) * np.pi))
+        #check(out, expected_entropy)
 
     def test_gumbel_softmax_distribution(self):
         # 5-categorical Gumble-Softmax.
-        param_space = Tuple(FloatBox(shape=(5,)), add_batch_rank=True)
-        values_space = FloatBox(shape=(5,), add_batch_rank=True)
-        input_spaces = dict(parameters=param_space, deterministic=bool, values=values_space)
+        param_space = Tuple(Float(shape=(5,)), main_axes="B")
+        values_space = Float(shape=(5,), main_axes="B")
 
-        gumble_softmax_distribution = GumbelSoftmax(switched_off_apis={"kl_divergence", "entropy"}, temperature=1.0)
-        test = ComponentTest(component=gumble_softmax_distribution, input_spaces=input_spaces)
+        gumble_softmax_distribution = GumbelSoftmax(temperature=1.0)
 
         # Batch of size=2 and deterministic (True).
-        input_ = [param_space.sample(2), True]
-        expected = np.argmax(input_[0], axis=-1)
+        input_ = param_space.sample(2)
+        expected = np.argmax(input_, axis=-1)
         # Sample n times, expect always argmax value (deterministic draw).
         for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected, decimals=5)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected, decimals=5)
+            out = gumble_softmax_distribution.sample(input_, deterministic=True)
+            check(out, expected)
+            out = gumble_softmax_distribution.sample_deterministic(input_)
+            check(out, expected)
 
         # TODO: finish this test case, using an actual Gumble-Softmax distribution from the
         # paper: https://arxiv.org/pdf/1611.01144.pdf.
@@ -441,7 +444,7 @@ class TestDistributions(unittest.TestCase):
             out = test.test(("sample_stochastic", tuple([input_[0]])))
             outs.append(np.argmax(out, axis=-1))
 
-        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+        check(np.mean(outs), expected.mean(), decimals=1)
 
         # Test log-likelihood outputs.
         means = np.array([[0.1, 0.2, 0.3, 0.4, 5.0]])
@@ -464,7 +467,7 @@ class TestDistributions(unittest.TestCase):
                        "bb": Tuple([FloatBox(shape=(2,)), FloatBox(shape=(2,))]),  # beta -1 to 1
                        "bc": Tuple([FloatBox(shape=(4,)), FloatBox(0.1, 1.0, shape=(4,))]),  # normal (dim=4)
                        })
-        }, add_batch_rank=True)
+        }, main_axes="B")
 
         values_space = Dict({
             "a": IntBox(4),
@@ -473,7 +476,7 @@ class TestDistributions(unittest.TestCase):
                 "bb": FloatBox(shape=(2,)),
                 "bc": FloatBox(shape=(4,))
             })
-        }, add_batch_rank=True)
+        }, main_axes="B")
 
         input_spaces = dict(
             parameters=param_space,
@@ -524,13 +527,13 @@ class TestDistributions(unittest.TestCase):
             out = test.test(("sample_stochastic", tuple([input_[0]])))
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(np.stack([o["a"][0] for o in outs], axis=0), axis=0), expected_mean["a"], atol=0.2)
-        recursive_assert_almost_equal(np.mean(np.stack([o["b"]["ba"][0] for o in outs], axis=0), axis=0),
-                                      expected_mean["b"]["ba"][0], decimals=1)
-        recursive_assert_almost_equal(np.mean(np.stack([o["b"]["bb"][0] for o in outs], axis=0), axis=0),
-                                      expected_mean["b"]["bb"][0], decimals=1)
-        recursive_assert_almost_equal(np.mean(np.stack([o["b"]["bc"][0] for o in outs], axis=0), axis=0),
-                                      expected_mean["b"]["bc"][0], decimals=1)
+        check(np.mean(np.stack([o["a"][0] for o in outs], axis=0), axis=0), expected_mean["a"], atol=0.2)
+        check(np.mean(np.stack([o["b"]["ba"][0] for o in outs], axis=0), axis=0),
+              expected_mean["b"]["ba"][0], decimals=1)
+        check(np.mean(np.stack([o["b"]["bb"][0] for o in outs], axis=0), axis=0),
+              expected_mean["b"]["bb"][0], decimals=1)
+        check(np.mean(np.stack([o["b"]["bc"][0] for o in outs], axis=0), axis=0),
+              expected_mean["b"]["bc"][0], decimals=1)
 
         # Test log-likelihood outputs.
         params = param_space.sample(1)

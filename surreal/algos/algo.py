@@ -28,28 +28,46 @@ class Algo(Makeable, metaclass=ABCMeta):
         self.config = config
         self.name = name or config.name
 
-        # Saveable components (e.g. networks).
-        self.saveables = []
+        # Savable components (e.g. networks).
+        self.savables = []
 
-    def load(self, path):
-        pass
-        #data =
-        #for component in self.saveables:
-        #    data.append(component.serialize(data_format))
+    @staticmethod
+    def load(path, include_weights=True):
+        """
+        Loads an algorithm from the specified algo file, including (or excluding) current weight values.
 
-    def save(self, path, data_format="json"):
+        Args:
+            path (str): The path/filename of the algo to load.
+            include_weights (bool): Whether to include the current weight values of the Algo.
+
+        Returns:
+            Algo: The Algo after loading it from disk.
+        """
+        # Open the given file and load the data into a json/yaml struct.
+        with open(path, 'r') as file:
+            try:
+                struct = json.load(file)
+            except Exception as e:
+                struct = yaml.load(file)
+
+        print(struct)
+
+    def save(self, path, data_format=None):
         """
         Saves this Algorithm by converting all its saveable components to json and storing everything in the given
         path/file.
 
         Args:
             path (str): The path/file to store the Algo's state in.
-            data_format (str): One of "json" or "yaml".
+            data_format (Optional[str]): One of "json" or "yaml" OR given through `path` (file extension).
         """
+        if data_format is None:
+            data_format = path[-4:]
+
         assert data_format == "json" or data_format == "yaml"
 
         data = []
-        for component in self.saveables:
+        for component in self.savables:
             data.append(component.serialize(data_format))
 
         with open(path, "w") as file:

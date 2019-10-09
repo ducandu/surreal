@@ -84,6 +84,8 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
         self.assertTrue(mean_last_10 > 150.0)
 
+        env.terminate()
+
     def test_learning_on_breakout_WORKING___YAY(self):
         # Create an Env object.
         env = OpenAIGymEnv(
@@ -119,10 +121,12 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
         self.assertTrue(mean_last_10 > 150.0)
 
+        env.terminate()
+
     def test_learning_on_breakout(self):
         # Create an Env object.
         env = OpenAIGymEnv(
-            "Breakout-v4", actors=16, fire_after_reset=True, episodic_life=True, max_num_noops_after_reset=8
+            "Breakout-v4", actors=1, fire_after_reset=True, episodic_life=True, max_num_noops_after_reset=8
         )
 
         preprocessor = Preprocessor(
@@ -153,3 +157,5 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
         mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
         self.assertTrue(mean_last_10 > 150.0)
+
+        env.terminate()

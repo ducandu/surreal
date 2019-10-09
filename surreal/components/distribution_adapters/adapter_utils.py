@@ -32,7 +32,7 @@ def get_adapter_type_from_distribution_type(distribution_type_str):
     # Int: Categorical.
     if distribution_type_str == "categorical":
         return "categorical-distribution-adapter"
-    elif distribution_type_str == "gumbelsoftmax":
+    elif distribution_type_str == "gumbelsoftmax" or distribution_type_str == "gumblesoftmax":
         return "gumbel-softmax-distribution-adapter"
     # Bool: Bernoulli.
     elif distribution_type_str == "bernoulli":

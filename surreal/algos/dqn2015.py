@@ -45,19 +45,20 @@ class DQN2015(RLAlgo):
         self.epsilon = Decay.make(self.config.epsilon)  # for epsilon greedy learning
         self.Phi.reset()  # make sure, Preprocessor is clean
 
-    def event_episode_starts(self, env, time_steps, batch_position, s):
-        self.Phi.reset(batch_position)  # Reset Phi at beginning of each episode (only at given batch positions).
+    def event_episode_starts(self, env, actor_time_steps, batch_position, s):
+        # Reset Phi at beginning of each episode (only at given batch positions).
+        self.Phi.reset(batch_position)
 
     # Env tick event -> Act in env and collect samples in replay-buffer.
-    def event_tick(self, env, time_steps, batch_positions, r, t, s_):
+    def event_tick(self, env, actor_time_steps, batch_positions, r, t, s_):
         # Update time-percentage value (for decaying parameters, e.g. learning-rate).
-        time_percentage = time_steps / (self.config.max_time_steps or env.max_time_steps)
+        time_percentage = actor_time_steps / (self.config.max_time_steps or env.max_time_steps)
 
         # Preprocess states.
         x_ = self.Phi(s_)
 
         # Add now-complete sars't-tuple to memory (batched).
-        if time_steps > 0:
+        if actor_time_steps > 0:
             self.memory.add_records(dict(x=self.x.value, a=self.a.value, r=r, x_=x_, t=t))
 
         # Handle ε-greedy exploration (should an ε case always be across the entire batch?).
@@ -69,8 +70,7 @@ class DQN2015(RLAlgo):
         env.act(a_)
 
         # Every nth tick event -> Update network, based on Loss.
-        if env.tick % (int(self.config.update_frequency / len(batch_positions)) or 1) == 0 and \
-                time_steps > self.config.steps_before_update:
+        if self.is_time_to("update", env.tick, actor_time_steps):
             weights = self.Q.get_weights(as_ref=True)
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 tape.watch(weights)  # Only watch main Q-weights, not the target weights.
@@ -78,7 +78,7 @@ class DQN2015(RLAlgo):
                 self.optimizer.apply_gradients(list(zip(tape.gradient(L, weights), weights)), time_percentage)
 
         # Every mth tick event -> Synchronize target Q-net.
-        if env.tick % (int(self.config.sync_frequency / len(batch_positions)) or 1) == 0:
+        if self.is_time_to("sync", env.tick, actor_time_steps):
             self.Qt.sync_from(self.Q)
 
         # Store actions and states for next tick (they form the incomplete next sars't-tuple).
@@ -128,7 +128,8 @@ class DQN2015Config(Config):
             preprocessor=None,
             gamma=0.99, epsilon=(1.0, 0.0), memory_capacity=10000,
             memory_batch_size=512,
-            max_time_steps=None, update_frequency=16, steps_before_update=0, sync_frequency=4
+            max_time_steps=None, update_after=0,
+            update_frequency=16, sync_frequency=4, time_unit="time_steps"
     ):
         """
         Args:
@@ -145,24 +146,28 @@ class DQN2015Config(Config):
             max_time_steps (Optional[int]): The maximum number of time steps (across all actors) to learn/update.
                 If None, use a value given by the environment.
 
-            update_frequency (int): The frequency (in all-actor time steps) with which to update our Q-network.
+            update_after (Union[int,str]): The `time_unit`s to wait before starting any updates.
+                Special values (only valid iff time_unit == "time_steps"!):
+                - "when-memory-full" for same as `memory_capacity`.
+                - when-memory-ready" for same as `memory_batch_size`.
 
-            steps_before_update (Union[int,str]): The steps (across all actors) to take before starting any updates.
-                Special values: "when-memory-full" for same as `memory_capacity`, "when-memory-ready" for same
-                as `memory_batch_size`.
-
-            sync_frequency (int): The frequency (in all-actor time steps) with which to synch our target network.
+            update_frequency (int): The frequency (in `time_unit`) with which to update our Q-network.
+            sync_frequency (int): The frequency (in `time_unit`) with which to sync our target network.
+            time_unit (str["time_step","env_tick"]): The time units we are using for update/sync decisions.
         """
         # Special value for start-train parameter -> When memory full.
-        if steps_before_update == "when-memory-full":
-            steps_before_update = memory_capacity
+        if update_after == "when-memory-full":
+            assert time_unit == "time_steps"
+            update_after = memory_capacity
         # Special value for start-train parameter -> When memory has enough records to pull a batch.
-        elif steps_before_update == "when-memory-ready":
-            steps_before_update = memory_batch_size
-        assert isinstance(steps_before_update, int)
+        elif update_after == "when-memory-ready":
+            assert time_unit == "time_steps"
+            update_after = memory_batch_size
+        assert isinstance(update_after, int)
 
         # Make sure sync-freq > update-freq:
         assert sync_frequency > update_frequency
+
         # Make sure memory batch size is less than capacity.
         assert memory_batch_size <= memory_capacity
 
@@ -170,3 +175,7 @@ class DQN2015Config(Config):
         assert isinstance(action_space, Int) and action_space.rank == 0 and action_space.num_categories > 1
 
         super().__init__(locals())  # Config will store all c'tor variables automatically.
+
+        # Keep track of which time-step stuff happened. Only important for by-time-step frequencies.
+        self.last_update = 0
+        self.last_sync = 0

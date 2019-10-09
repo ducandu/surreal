@@ -1,40 +1,36 @@
 {
   "gamma": 0.99,
 
-  "n_step": 4,
+  "n_step": 6,
+  "n_step_only": false,
 
-  "memory_capacity": 100000,
+  "memory_capacity": 20000,
   "memory_batch_size": 256,
 
   "epsilon": {
     "type": "linear-decay",
     "from": 1.0,
-    "to": 0.0,
+    "to": 0.05,
     "end_time_percentage": 0.9
   },
 
   "q_network": [
     {
       "name": "dense",
-      "units": 512,
-      "activation": "relu"
+      "units": 128,
+      "activation": "tanh"
     },
     {
       "name": "dense",
-      "units": 512,
-      "activation": "relu"
-    },
-    {
-      "name": "dense",
-      "units": 512,
-      "activation": "relu"
+      "units": 128,
+      "activation": "tanh"
     }
   ],
 
   "dueling_a_network": [
     {
       "name": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "relu"
     }
   ],
@@ -42,18 +38,18 @@
   "dueling_v_network": [
     {
       "name": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "relu"
     }
   ],
 
-  "update_frequency": 4,
-  "steps_before_update": "when-memory-ready",
-  "sync_frequency": 128,
+  "update_frequency": 1,
+  "update_after": "when-memory-ready",
+  "sync_frequency": 64,
 
   "optimizer": {
     "type": "adam",
-    "learning_rate": 0.0002,
+    "learning_rate": [0.01, 0.00001],
     "clip_norm": 40
   }
 }

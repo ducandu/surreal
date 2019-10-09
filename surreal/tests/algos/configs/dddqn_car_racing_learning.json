@@ -65,7 +65,7 @@
   ],
 
   "update_frequency": 4,
-  "steps_before_update": "when-memory-ready",
+  "update_after": "when-memory-ready",
   "sync_frequency": 1000,
 
   "optimizer": {

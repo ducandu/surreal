@@ -144,6 +144,8 @@ class Model(Makeable, metaclass=ABCMeta):
 
         Args:
             component (any): The component to clone.
+            trainable (Optional[bool]): Whether the copy should have trainable variables or not.
+                None for leaving `trainable` as is in the original Model.
 
         Returns:
             Any: The cloned component.

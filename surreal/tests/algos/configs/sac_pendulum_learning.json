@@ -1,0 +1,39 @@
+{
+  "gamma": 0.99,
+  "memory_capacity": 10000,
+  "memory_batch_size": 256,
+  "initial_alpha": 1.0,
+
+  "num_q_networks": 2,
+
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 512,
+      "activation": "tanh"
+    },
+    {
+      "name": "dense",
+      "units": 512,
+      "activation": "tanh"
+    },
+    {
+      "name": "dense",
+      "units": 512,
+      "activation": "tanh"
+    }
+  ],
+
+  "default_optimizer": {
+    "type": "adam",
+    "learning_rate": [0.0005, 0.00001],
+    "clip_norm": 40
+  },
+
+  "time_unit": "time_steps",
+  "update_after": "when-memory-ready",
+  "update_frequency": 1,
+  "num_steps_per_update": 2,
+  "sync_frequency": 1,
+  "sync_tau": 0.005
+}

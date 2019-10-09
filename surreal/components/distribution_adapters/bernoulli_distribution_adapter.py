@@ -30,5 +30,6 @@ class BernoulliDistributionAdapter(DistributionAdapter):
         return units, new_shape
 
     def get_parameters_from_adapter_outputs(self, adapter_outputs):
-        # Logits (parameters for Bernoulli distribution).
-        return adapter_outputs
+        # `adapter_outputs` are interpreted as log-odds. Passing these through a softmax will yield the probs of a
+        # `True` event.
+        return adapter_outputs  # Logits (parameters for Bernoulli distribution).

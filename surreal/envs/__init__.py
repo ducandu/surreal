@@ -15,60 +15,47 @@
 # ==============================================================================
 
 from surreal.envs.env import Env
-from surreal.envs.deterministic_env import DeterministicEnv
-from surreal.envs.gaussian_density_as_reward_env import GaussianDensityAsRewardEnv
+from surreal.envs.local_env import LocalEnv
 from surreal.envs.grid_world import GridWorld
 from surreal.envs.openai_gym_env import OpenAIGymEnv
-from surreal.envs.random_env import RandomEnv
-from surreal.envs.vector_env import VectorEnv
-from surreal.envs.sequential_vector_env import SequentialVectorEnv
 
 Env.__lookup_classes__ = dict(
-    deterministic=DeterministicEnv,
-    deterministicenv=DeterministicEnv,
-    gaussiandensity=GaussianDensityAsRewardEnv,
-    gaussiandensityasreward=GaussianDensityAsRewardEnv,
-    gaussiandensityasrewardenv=GaussianDensityAsRewardEnv,
     gridworld=GridWorld,
     gridworldenv=GridWorld,
     openai=OpenAIGymEnv,
     openaigym=OpenAIGymEnv,
     openaigymenv=OpenAIGymEnv,
-    random=RandomEnv,
-    randomenv=RandomEnv,
-    sequentialvector=SequentialVectorEnv,
-    sequentialvectorenv=SequentialVectorEnv
 )
 
-try:
-    import deepmind_lab
+#try:
+#    import deepmind_lab
 
-    # If import works: Can import our Adapter.
-    from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+#    # If import works: Can import our Adapter.
+#    from rlgraph.environments.deepmind_lab import DeepmindLabEnv
 
-    Env.__lookup_classes__.update(dict(
-        deepmindlab=DeepmindLabEnv,
-        deepmindlabenv=DeepmindLabEnv,
-    ))
-    # TODO travis error on this, investigate.
-except Exception:
-    pass
-
-
-try:
-    import mlagents
-
-    # If import works: Can import our Adapter.
-    from rlgraph.environments.mlagents_env import MLAgentsEnv
-
-    Env.__lookup_classes__.update(dict(
-        mlagents=MLAgentsEnv,
-        mlagentsenv=MLAgentsEnv,
-    ))
-    # TODO travis error on this, investigate.
-except Exception:
-    pass
+#    Env.__lookup_classes__.update(dict(
+#        deepmindlab=DeepmindLabEnv,
+#        deepmindlabenv=DeepmindLabEnv,
+#    ))
+#    # TODO travis error on this, investigate.
+#except Exception:
+#    pass
 
 
-__all__ = ["Env"] + \
+#try:
+#    import mlagents
+
+#    # If import works: Can import our Adapter.
+#    from rlgraph.environments.mlagents_env import MLAgentsEnv
+
+#    Env.__lookup_classes__.update(dict(
+#        mlagents=MLAgentsEnv,
+#        mlagentsenv=MLAgentsEnv,
+#    ))
+#    # TODO travis error on this, investigate.
+#except Exception:
+#    pass
+
+
+__all__ = ["Env", "LocalEnv"] + \
           list(set(map(lambda x: x.__name__, Env.__lookup_classes__.values())))

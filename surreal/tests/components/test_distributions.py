@@ -22,7 +22,7 @@ from surreal.components.distributions import *
 from surreal.spaces import Float, Int, Tuple
 from surreal.tests import check
 from surreal.utils.numpy import softmax, sigmoid
-from surreal.utils.util import MIN_LOG_STDDEV, MAX_LOG_STDDEV
+from surreal.utils.util import MIN_LOG_NN_OUTPUT, MAX_LOG_NN_OUTPUT
 
 
 class TestDistributions(unittest.TestCase):
@@ -155,7 +155,7 @@ class TestDistributions(unittest.TestCase):
         log_stds = np.array([[0.8, -0.2, 0.3, -1.0, 10.0]])
         # The normal-adapter does this following line with the NN output (interpreted as log(stddev)):
         # Doesn't really matter here in this test case, though.
-        stds = np.exp(np.clip(log_stds, a_min=MIN_LOG_STDDEV, a_max=MAX_LOG_STDDEV))
+        stds = np.exp(np.clip(log_stds, a_min=MIN_LOG_NN_OUTPUT, a_max=MAX_LOG_NN_OUTPUT))
         values = np.array([[1.0, 2.0, 0.4, 10.0, 5.4]])
 
         # Test log-likelihood outputs.
@@ -391,7 +391,7 @@ class TestDistributions(unittest.TestCase):
         log_stds = np.array([[0.8, -0.2, 0.3, -1.0, 10.0], [0.7, -0.3, 0.4, -0.9, 8.0]])
         # The normal-adapter does this following line with the NN output (interpreted as log(stddev)):
         # Doesn't really matter here in this test case, though.
-        stds = np.exp(np.clip(log_stds, a_min=MIN_LOG_STDDEV, a_max=MAX_LOG_STDDEV))
+        stds = np.exp(np.clip(log_stds, a_min=MIN_LOG_NN_OUTPUT, a_max=MAX_LOG_NN_OUTPUT))
         # Make sure values are within low and high.
         values = np.array([[0.9, 0.2, 0.4, -0.1, -1.05], [-0.9, -0.2, 0.4, -0.1, -1.05]])
 

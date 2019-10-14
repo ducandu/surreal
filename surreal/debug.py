@@ -16,7 +16,6 @@
 import logging
 import json
 import os
-from time import sleep
 
 from surreal import SURREAL_HOME
 
@@ -31,28 +30,25 @@ try:
     with open(os.path.expanduser(os.path.join(SURREAL_HOME, "debug.json"))) as f:
         DEBUG_SETTINGS = json.load(f)
     logging.warning("debug.json file found in home directory! This could possibly mean slowdowns in execution.")
-    for i in range(2, 0, -1):
-        logging.warning(i)
-        sleep(1)
 except json.decoder.JSONDecodeError as e:
     raise e
 except (ValueError, FileNotFoundError):
     pass
 
-# Assert proper syncing functionality of Models by comparing all values before
-# (should be dissimilar) and after (should be similar) syncing.
+# Assert proper syncing functionality of Models.
+# ----------------------------------------------
+# By comparing all values before (should be dissimilar) and after (should be similar) syncing.
 AssertModelSync = DEBUG_SETTINGS.pop("AssertModelSync", False)
 
 # Whether to reference the last batch pulled from a memory in the memories own `last_batch_pulled` property.
+#-----------------------------------------------------------------------------------------------------------
 KeepLastMemoryBatch = DEBUG_SETTINGS.pop("KeepLastMemoryBatch", False)
 
 # Store every nth trajectory (an entire episode's states, actions, rewards).
 StoreEveryNthEpisode = DEBUG_SETTINGS.pop("StoreEveryNthEpisode", False)
 
-# Whether to log loss values during training.
-StoreLosses = DEBUG_SETTINGS.pop("StoreLosses", False)
-
 # Store preprocessing every n calls. None for off.
+# ------------------------------------------------
 # Note: Will only log the first item in each batch.
 StorePreprocessingEveryNCalls = DEBUG_SETTINGS.pop("StorePreprocessingEveryNCalls", False)
 # Store the preprocessing steps only for the first n components of a Preprocessor.
@@ -61,9 +57,15 @@ StorePreprocessingOnlyForFirstNPreprocessorComponents = \
     DEBUG_SETTINGS.pop("StorePreprocessingOnlyForFirstNPreprocessorComponents", False)
 
 # Whether to render all learning tests.
+# -------------------------------------
 RenderEnvInLearningTests = DEBUG_SETTINGS.pop("RenderEnvInLearningTests", False)
-
 # If rendering an env, maximally render n actors.
 IfRenderingRenderMaximallyNActors = DEBUG_SETTINGS.pop("IfRenderingRenderMaximallyNActors", 1)
 
+
+# Tf2.0 Summaries.
+# ----------------
+UseTfSummaries = DEBUG_SETTINGS.pop("UseTfSummaries", False)
+
+# Make sure nothing unknown is left in json struct.
 assert not DEBUG_SETTINGS, "ERROR: Unknown debug settings found in debug.json file: {}".format(DEBUG_SETTINGS)

@@ -20,7 +20,7 @@ import tensorflow as tf
 from surreal.algos.rl_algo import RLAlgo
 from surreal.components import Network, ReplayBuffer, Optimizer, Decay, Preprocessor, LossFunction
 from surreal.config import Config
-from surreal.spaces import Dict, Float, Bool, Int, Space
+from surreal.spaces import Dict, Int, Space
 
 
 class DQN2015(RLAlgo):
@@ -31,14 +31,14 @@ class DQN2015(RLAlgo):
     """
     def __init__(self, config, name=None):
         super().__init__(config, name)
-        self.Phi = Preprocessor.make(config.preprocessor)
-        self.x = self.Phi(Space.make(self.config.state_space).with_batch())  # preprocessed states (x)
+        self.Phi = Preprocessor.make(config.preprocessor)  # states preprocessor (Phi, like in paper)
+        self.x = self.Phi(Space.make(self.config.state_space).with_batch())  # preprocessed states ('x', like in paper)
         self.a = Space.make(self.config.action_space).with_batch()  # actions (a)
         self.Q = Network.make(network=config.q_network, output_space=self.a, input_space=self.x)  # Q-network
         self.Qt = self.Q.copy(trainable=False)  # target Q-network
-        self.memory = ReplayBuffer.make(
-            record_space=Dict(dict(x=self.x, a=self.a, r=float, x_=self.x, t=bool), main_axes="B"),
-            capacity=config.memory_capacity
+        self.memory = ReplayBuffer.make(  # simple replay buffer
+            record_space=Dict(dict(x=self.x, a=self.a, r=float, t=bool), main_axes="B"),
+            capacity=config.memory_capacity, next_record_setup=dict(x="x_")
         )
         self.L = DQN2015Loss()  # plain Q-loss (quadratic, 1-step TD)
         self.optimizer = Optimizer.make(self.config.optimizer)
@@ -54,7 +54,7 @@ class DQN2015(RLAlgo):
         # Update time-percentage value (for decaying parameters, e.g. learning-rate).
         time_percentage = actor_time_steps / (self.config.max_time_steps or env.max_time_steps)
 
-        # Preprocess states.
+        # Preprocess states. Call preprocessed states 'x', just like in the paper.
         x_ = self.Phi(s_)
 
         # Add now-complete sars't-tuple to memory (batched).
@@ -129,7 +129,7 @@ class DQN2015Config(Config):
             gamma=0.99, epsilon=(1.0, 0.0), memory_capacity=10000,
             memory_batch_size=512,
             max_time_steps=None, update_after=0,
-            update_frequency=16, sync_frequency=4, time_unit="time_steps"
+            update_frequency=16, sync_frequency=4, time_unit="time_step"
     ):
         """
         Args:
@@ -147,7 +147,7 @@ class DQN2015Config(Config):
                 If None, use a value given by the environment.
 
             update_after (Union[int,str]): The `time_unit`s to wait before starting any updates.
-                Special values (only valid iff time_unit == "time_steps"!):
+                Special values (only valid iff time_unit == "time_step"!):
                 - "when-memory-full" for same as `memory_capacity`.
                 - when-memory-ready" for same as `memory_batch_size`.
 
@@ -155,13 +155,15 @@ class DQN2015Config(Config):
             sync_frequency (int): The frequency (in `time_unit`) with which to sync our target network.
             time_unit (str["time_step","env_tick"]): The time units we are using for update/sync decisions.
         """
+        assert time_unit in ["time_step", "env_tick"]
+
         # Special value for start-train parameter -> When memory full.
         if update_after == "when-memory-full":
-            assert time_unit == "time_steps"
+            assert time_unit == "time_step"
             update_after = memory_capacity
         # Special value for start-train parameter -> When memory has enough records to pull a batch.
         elif update_after == "when-memory-ready":
-            assert time_unit == "time_steps"
+            assert time_unit == "time_step"
             update_after = memory_batch_size
         assert isinstance(update_after, int)
 

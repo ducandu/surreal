@@ -145,7 +145,7 @@ class Dict(ContainerSpace, dict):
 
     @property
     def flat_dim(self):
-        return int(np.sum([c.flat_dim for c in self.values()]))
+        return int(np.sum([c.flat_dim for k, c in sorted(self.items())]))
 
     @property
     def dtype(self):
@@ -155,13 +155,14 @@ class Dict(ContainerSpace, dict):
     def structure(self):
         return {key: subspace.structure for key, subspace in self.items()}
 
-    def create_variable(self, name, is_input_feed=False, **kwargs):
-        return {key: subspace.create_variable(
-            name + "/" + key, is_input_feed=is_input_feed, **kwargs
-        ) for key, subspace in self.items()}
+    def create_variable(self):  #, name, is_input_feed=False, **kwargs):
+        return {key: subspace.create_variable() for key, subspace in self.items()}
 
     def create_keras_input(self):
         return {key: subspace.create_keras_input() for key, subspace in self.items()}
+
+    def as_one_hot_float_space(self):
+        return {key: subspace.as_one_hot_float_space() for key, subspace in self.items()}
 
     def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:
@@ -281,15 +282,14 @@ class Tuple(ContainerSpace, tuple):
     def structure(self):
         return tuple([c.structure for c in self])
 
-    def create_variable(self, name, is_input_feed=False, **kwargs):
-        return tuple(
-            [subspace.get_variable(
-                name+"/"+str(i), is_input_feed=is_input_feed, **kwargs
-            ) for i, subspace in enumerate(self)]
-        )
+    def create_variable(self):  #, name, is_input_feed=False, **kwargs):
+        return tuple([subspace.get_variable() for i, subspace in enumerate(self)])
 
     def create_keras_input(self):
         return tuple([subspace.create_keras_input() for i, subspace in enumerate(self)])
+
+    def as_one_hot_float_space(self):
+        return tuple([subspace.as_one_hot_float_space() for i, subspace in enumerate(self)])
 
     def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:

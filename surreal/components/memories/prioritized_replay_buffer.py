@@ -30,7 +30,7 @@ class PrioritizedReplayBuffer(Memory):
     """
     Implements an in-memory prioritized replay.
     """
-    def __init__(self, record_space, capacity=1000, alpha=1.0, beta=1.0):
+    def __init__(self, record_space, capacity=1000, *, alpha=1.0, beta=1.0, next_record_setup=None):
         """
         Args:
             alpha (float): Degree to which prioritization is applied, 0.0 implies no
@@ -38,7 +38,7 @@ class PrioritizedReplayBuffer(Memory):
 
             beta (float): Importance weight factor, 0.0 for no importance correction, 1.0 for full correction.
         """
-        super().__init__(record_space, capacity)
+        super().__init__(record_space=record_space, capacity=capacity, next_record_setup=next_record_setup)
 
         # Records are allowed to carry their own weight when being added to
         self.index_record_weight = None
@@ -48,9 +48,6 @@ class PrioritizedReplayBuffer(Memory):
         self.alpha = alpha
         self.beta = beta
 
-        self.memory = []
-        self.index = 0
-        self.size = 0
         self.max_priority = 1.0
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
@@ -73,26 +70,24 @@ class PrioritizedReplayBuffer(Memory):
 
     def add_records(self, records, single=False):
         num_records, flat_records = self.get_number_and_flatten_records(records, single)
-        insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
-        for i, insert_index in enumerate(insert_indices):
+
+        # Determine our insertion indices.
+        indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+
+        for i, insert_index in enumerate(indices):
             if self.index_record_weight is None:
                 self.merged_segment_tree.insert(insert_index, self.default_new_weight)
             else:
                 self.merged_segment_tree.insert(insert_index, flat_records[i][self.index_record_weight])
-            single_record = [val[i] for val in flat_records]
-            if insert_index >= self.size:
-                self.memory.append(single_record)
-            else:
-                self.memory[insert_index] = single_record
+
+        # Add values to the indices.
+        for i, memory_bin in enumerate(self.memory):
+            for j, k in enumerate(indices):
+                memory_bin[k] = flat_records[i][j]
 
         # Update indices
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
-
-    def get_records(self, num_records=1):
-        records, _ = self.get_records_with_indices(num_records)
-        # Only return the records to keep the API intact.
-        return records
 
     def get_records_with_indices(self, num_records=1):
         if self.size <= 0:
@@ -101,14 +96,15 @@ class PrioritizedReplayBuffer(Memory):
         # Calculate the indices to pull from the memory.
         indices = []
         prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size)  # -1?
-        #available_records = min(num_records, self.size)
         samples = np.random.random(size=(num_records,)) * prob_sum  # TODO: check: available_records instead or num_records?
         for sample in samples:
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
 
         indices = np.asarray(indices)
-        records = [np.array([self.memory[i][var] for i in indices]) for var in range(len(self.flat_record_space))]
+        records = [np.array([var[i] for i in indices]) for var in self.memory]
         records = tf.nest.pack_sequence_as(self.record_space.structure, records)
+
+        self.inject_next_values_if_necessary(indices, records)
 
         if KeepLastMemoryBatch is True:
             self.last_records_pulled = records
@@ -118,21 +114,16 @@ class PrioritizedReplayBuffer(Memory):
     def get_records_with_indices_and_weights(self, num_records=1):
         records, indices = self.get_records_with_indices(num_records=num_records)
 
-        # TODO: This seems to be erroneous (see test case for this PR Component: test_update_records).
         sum_prob = self.merged_segment_tree.sum_segment_tree.get_sum()
         min_prob = self.merged_segment_tree.min_segment_tree.get_min_value() / sum_prob + SMALL_NUMBER
         max_weight = (min_prob * self.size) ** (-self.beta)
         weights = []
         for index in indices:
             sample_prob = self.merged_segment_tree.sum_segment_tree.get(index) / sum_prob
-            #sample_prob = self.merged_segment_tree.sum_segment_tree.get(index)
             weight = (sample_prob * self.size) ** (-self.beta)
-            #weight = sample_prob  # * self.size
             weights.append(weight / max_weight)
 
         weights = np.asarray(weights)
-        records = [np.array([self.memory[i][var] for i in indices]) for var in range(len(self.flat_record_space))]
-        records = tf.nest.pack_sequence_as(self.record_space.structure, records)
 
         return records, indices, weights
 
@@ -144,6 +135,9 @@ class PrioritizedReplayBuffer(Memory):
             indices (np.ndarray 1D): The list of memory indices to overwrite.
             weights (np.ndarray 1D): The new weight values (shape must match that of `indices`).
         """
+        # Safety net for inf weights.
+        weights = np.where(np.isfinite(weights), weights, self.max_priority)
+        # Update weights at given indices one by one.
         for index, weight in zip(indices, weights):
             priority = np.power(weight, self.alpha)
             self.merged_segment_tree.insert(index, priority)

@@ -127,3 +127,4 @@ class TestReplayBuffer(unittest.TestCase):
         # Assert we can fetch exactly capacity elements.
         retrieved_data = memory.get_records(num_records=capacity)
         self.assertEqual(capacity, len(retrieved_data["terminals"]))
+

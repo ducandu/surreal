@@ -15,6 +15,7 @@
 # ==============================================================================
 
 from abc import ABCMeta
+import copy
 import numpy as np
 import tensorflow as tf
 
@@ -131,15 +132,13 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
     def tensor_backed_bounds(self):
         return self.low, self.high
 
-    def create_variable(
-            self, name, is_input_feed=False, is_python=False, local=False, **kwargs
-    ):
+    def create_variable(self):  #, **kwargs):
         shape = [i if i is not None else 1 for i in self.get_shape(include_main_axes=True)]
 
-        if is_python is True:
-            return np.zeros(shape or (), dtype=convert_dtype(dtype=self.dtype, to="np"))
+        #if is_python is True:
+        return np.zeros(shape or (), dtype=convert_dtype(dtype=self.dtype, to="np"))
 
-        raise NotImplementedError
+        #raise NotImplementedError
 
         """else:
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
@@ -291,15 +290,8 @@ class Int(PrimitiveSpace):
         return shape
 
     def as_one_hot_float_space(self):
-        """
-        Returns a new FloatBox Space resulting from one-hot flattening out this space
-        along its number of categories.
-
-        Returns:
-            Float: The resulting FloatBox Space (with the same batch and time-rank settings).
-        """
         return Float(
-            low=0.0, high=1.0, shape=self.get_shape(with_category_rank=True), main_axes=self.main_axes
+            low=0.0, high=1.0, shape=self.get_shape(with_category_rank=True), main_axes=copy.deepcopy(self.main_axes)
         )
 
     @property

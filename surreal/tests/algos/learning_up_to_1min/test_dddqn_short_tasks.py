@@ -55,9 +55,10 @@ class TestDDDQNShortLearningTasks(unittest.TestCase):
         env.run(ticks=1500, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
-        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
-        print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 >= 0.6)
+        n = 10
+        mean_last_n = np.mean(env.historic_episodes_returns[-n:])
+        print("Avg return over last {} episodes: {}".format(n, mean_last_n))
+        self.assertTrue(mean_last_n >= 0.6)
 
         # Check learnt Q-function (using our dueling layer).
         a_and_v = algo.Q(one_hot(np.array([0, 0, 0, 0, 1, 1, 1, 1]), depth=4))
@@ -93,6 +94,6 @@ class TestDDDQNShortLearningTasks(unittest.TestCase):
         last_n = 10
         mean_last_episodes = np.mean(env.historic_episodes_returns[-last_n:])
         print("Avg return over last {} episodes: {}".format(last_n, mean_last_episodes))
-        self.assertTrue(mean_last_episodes > 150.0)
+        self.assertTrue(mean_last_episodes > 160.0)
 
         env.terminate()

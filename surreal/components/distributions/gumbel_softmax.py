@@ -33,7 +33,6 @@ class GumbelSoftmax(Distribution):
     """
     def __init__(self, temperature=1.0):
         """
-
         Args:
             temperature (float): Temperature parameter. For low temperatures, the expected value approaches
                 a categorical random variable. For high temperatures, the expected value approaches a uniform

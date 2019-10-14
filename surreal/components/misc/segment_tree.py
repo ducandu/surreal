@@ -16,39 +16,30 @@
 
 import operator
 
+from surreal.makeable import Makeable
 from surreal.utils.errors import SurrealError
 
 
-class SegmentTree(object):
+class SegmentTree(Makeable):
     """
-    In-memory Segment tree for prioritized replay.
-
-    Note: The pure TensorFlow segment tree is much slower because variable updating is expensive,
-    and in scenarios like Ape-X, memory and update are separated processes, so there is little to be gained
-    from inserting into the graph.
+    Segment tree for prioritized replay.
     """
-    def __init__(
-            self,
-            values,
-            capacity,
-            operator=operator.add
-    ):
+    def __init__(self, values, capacity, operator=operator.add):
         """
-        Helper to represent a segment tree.
-
         Args:
-            values (list): Storage for the segment tree.
+            values (List[any]): Storage for the segment tree.
             capacity (int): Capacity of segment tree.
             operator (callable): Reduce operation of the segment tree.
         """
+        super().__init__()
+
         self.values = values
         self.capacity = capacity
         self.operator = operator
 
     def insert(self, index, element):
         """
-        Inserts an element into the segment tree by determining
-        its position in the tree.
+        Inserts an element into the segment tree by determining its position in the tree.
 
         Args:
             index (int): Insertion index.
@@ -73,10 +64,10 @@ class SegmentTree(object):
         Reads an item from the segment tree.
 
         Args:
-            index (int):
+            index (int): The index to read from.
 
-        Returns: The element.
-
+        Returns:
+            any: The retrieved element.
         """
         return self.values[self.capacity + index]
 
@@ -105,7 +96,7 @@ class SegmentTree(object):
 
     def reduce(self, start, limit, reduce_op=operator.add):
         """
-        Applies an operation to specified segment.
+        Applies an operation to the specified segment.
 
         Args:
             start (int): Start index to apply reduction to.
@@ -146,29 +137,26 @@ class SegmentTree(object):
 
     def get_min_value(self, start=0, stop=None):
         """
-        Returns min value of storage variable.
+        Returns:
+             min value of storage variable.
         """
         return self.reduce(start, stop, reduce_op=min)
 
     def get_sum(self, start=0, stop=None):
         """
-        Returns sum value of storage variable.
+        Returns:
+             sum value of storage variable.
         """
         return self.reduce(start, stop, reduce_op=operator.add)
 
 
-class MinSumSegmentTree(object):
+class MinSumSegmentTree(Makeable):
     """
     This class merges two segment trees' operations for performance reasons to avoid
     unnecessary duplication of the insert loops.
     """
-
-    def __init__(
-            self,
-            sum_tree,
-            min_tree,
-            capacity,
-    ):
+    def __init__(self, sum_tree, min_tree, capacity):
+        super().__init__()
         self.sum_segment_tree = sum_tree
         self.min_segment_tree = min_tree
         self.capacity = capacity

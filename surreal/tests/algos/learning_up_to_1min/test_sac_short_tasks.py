@@ -22,6 +22,7 @@ from surreal.components.preprocessors.preprocessor import Preprocessor
 import surreal.debug as debug
 from surreal.envs import OpenAIGymEnv, GridWorld
 from surreal.tests.test_util import check
+from surreal.utils.numpy import one_hot
 
 
 class TestSACShortLearningTasks(unittest.TestCase):
@@ -43,7 +44,15 @@ class TestSACShortLearningTasks(unittest.TestCase):
             "../configs/sac_grid_world_2x2_learning.json",
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
-            action_space=env.actors[0].action_space
+            action_space=env.actors[0].action_space,
+            summaries=[
+                "Ls_critic[0]", "L_actor", "L_alpha", "alpha",
+                {"name": "Q(0,^)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([0])}]},
+                {"name": "Q(0,->)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([1])}]},
+                {"name": "Q(0,v)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([2])}]},
+                {"name": "Q(0,<-)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([3])}]},
+                {"name": "Q(1,->)", "prop": "Q[0]", "args": [{"s": np.array([[0., 1., 0., 0.]]), "a": np.array([1])}]}
+            ]
         )
 
         # Create an Algo object.
@@ -54,12 +63,20 @@ class TestSACShortLearningTasks(unittest.TestCase):
             actor.set_algo(algo)
 
         # Run and wait for env to complete.
-        env.run(ticks=1500, sync=True, render=debug.RenderEnvInLearningTests)
+        env.run(ticks=700, sync=True, render=debug.RenderEnvInLearningTests)
+
+        # Check learnt Q-function.
+        q = algo.Q[0](dict(s=one_hot(np.array([0, 0, 0, 0, 1, 1, 1, 1]), depth=4), a=np.array([0, 1, 2, 3, 0, 1, 2, 3])))
+        print(q)
+        self.assertTrue(q[1] < min(q[2:]) and q[1] < q[0])  # q(s=0,a=right) is the worst
+        self.assertTrue(q[5] > q[4] and q[5] > max(q[6:]))  # q(s=1,a=right) is the best in state 1
+        #check(q, [0.8, -5.0, 0.9, 0.8, 0.8, 1.0, 0.9, 0.9], decimals=1)  # a=up,down,left,right
 
         # Check last n episode returns.
-        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
-        print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 >= 0.8)
+        n = 10
+        mean_last_n = np.mean(env.historic_episodes_returns[-n:])
+        print("Avg return over last {} episodes: {}".format(n, mean_last_n))
+        self.assertTrue(mean_last_n >= 0.7)
 
         env.terminate()
 
@@ -82,40 +99,12 @@ class TestSACShortLearningTasks(unittest.TestCase):
             actor.set_algo(algo)
 
         # Run and wait for env to complete.
-        env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)
+        env.run(ticks=2000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
-        last_n = 10
+        last_n = 4
         mean_last_episodes = np.mean(env.historic_episodes_returns[-last_n:])
         print("Avg return over last {} episodes: {}".format(last_n, mean_last_episodes))
         self.assertTrue(mean_last_episodes > 160.0)
-
-        env.terminate()
-
-    def test_sac_learning_on_pendulum(self):
-        # Create an Env object.
-        env = OpenAIGymEnv("Pendulum-v0", actors=1)
-
-        # Create a Config.
-        config = SACConfig.make(
-            "../configs/sac_pendulum_learning.json",
-            state_space=env.actors[0].state_space,
-            action_space=env.actors[0].action_space
-        )
-
-        # Create an Algo object.
-        algo = SAC(config=config, name="my-sac")
-
-        # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
-
-        # Run and wait for env to complete.
-        env.run(ticks=10000, sync=True, render=debug.RenderEnvInLearningTests)
-
-        # Check last n episode returns.
-        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
-        print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 >= -200.0)
 
         env.terminate()

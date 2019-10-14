@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import cv2
+import numpy as np
 import tensorflow as tf
 
 from surreal import PATH_PREPROCESSING_LOGS
@@ -119,13 +120,22 @@ class Preprocessor(Makeable):
     @staticmethod
     def _debug_store(path, data):
         # Probably a batch of images.
-        if len(data.shape) == 4 and (data.shape[3] == 1 or data.shape[3] == 3):
-            cv2.imwrite(path+".png", data[0])
+        if len(data.shape) == 4:
+            # Greyscale or RGB color image.
+            if data.shape[3] == 1 or data.shape[3] == 3:
+                cv2.imwrite(path+".png", data[0])
+            # Probably a sequence of 4 greyscale images -> Write first 3 channels (0-2) and last 3 channels (1-3).
+            elif data.shape[3] == 4:
+                data = ((data + 1.0) * 128).astype(np.uint8)
+                cv2.imwrite(path + ".0-2.png", data[0, :, :, :-1])
+                cv2.imwrite(path + ".1-3.png", data[0, :, :, 1:])
+            else:
+                raise NotImplementedError
         else:
             raise NotImplementedError
 
     @classmethod
     def make(cls, spec=None, **kwargs):
-        if callable(spec):
-            return super().make(_args=[spec])
+        #if callable(spec):
+        #    return super().make(_args=[spec])
         return super().make(spec, **kwargs)

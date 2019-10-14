@@ -14,7 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 
+import tensorflow as tf
+
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
+from surreal.utils.util import MIN_LOG_NN_OUTPUT, MAX_LOG_NN_OUTPUT
 
 
 class GumbelSoftmaxDistributionAdapter(DistributionAdapter):
@@ -22,11 +25,22 @@ class GumbelSoftmaxDistributionAdapter(DistributionAdapter):
     Action adapter for the GumbelSoftmax distribution.
     """
     def get_units_and_shape(self):
-        units = self.output_space.flat_dim_with_categories
+        units = self.output_space.flat_dim_with_categories  #+ 1  # +1 temperature node
         new_shape = self.output_space.get_shape(include_main_axes=True, with_category_rank=True)
-        new_shape = tuple([i if i is not None else -1 for i in new_shape])
-        return units, new_shape
+        new_shape = [i if i is not None else -1 for i in new_shape]
+        #new_shape[-1] += 1  # Add the temperature node.
+        return units, tuple(new_shape)
 
     def get_parameters_from_adapter_outputs(self, adapter_outputs):
-        # Return raw logits.
         return adapter_outputs
+        # For Gumbel, we also learn the temperature parameter.
+        #log_temp, logits = tf.split(
+        #    adapter_outputs, num_or_size_splits=(1, adapter_outputs.shape.as_list()[-1] - 1), axis=-1
+        #)
+        #log_temp = tf.squeeze(log_temp, axis=-1)
+        #log_temp = tf.clip_by_value(log_temp, MIN_LOG_NN_OUTPUT, MAX_LOG_NN_OUTPUT)
+        ## Turn log sd into sd to ascertain always positive stddev values.
+        #temp = tf.math.exp(log_temp)
+
+        # Return temp and logits for GumbelSoftmaxDistribution.
+        #return tuple([temp, logits])

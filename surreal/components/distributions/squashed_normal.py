@@ -25,8 +25,14 @@ from surreal.utils.util import SMALL_NUMBER
 class SquashedNormal(Distribution):
     """
     A Squashed with tanh Normal distribution object defined by a tuple: mean, standard deviation.
+    The distribution will never return low or high exactly, but `low`+SMALL_NUMBER or `high`-SMALL_NUMBER respectively.
     """
     def __init__(self, low=-1.0, high=1.0):
+        """
+        Args:
+            low (float): The lowest possible sampling value (excluding this value).
+            high (float): The highest possible sampling value (excluding this value).
+        """
         super(SquashedNormal, self).__init__()
 
         assert np.all(np.less(low, high))
@@ -46,7 +52,8 @@ class SquashedNormal(Distribution):
         return self._squash(mean)
 
     def _sample_stochastic(self, distribution, seed=None):
-        return self._squash(distribution.sample(seed=seed or self.seed))
+        sample = self._squash(distribution.sample(seed=seed or self.seed))
+        return sample
 
     def _log_prob(self, distribution, values):
         unsquashed_values = self._unsquash(values)
@@ -69,7 +76,9 @@ class SquashedNormal(Distribution):
         return scaled_action, log_prob
 
     def _squash(self, raw_values):
-        return (tf.math.tanh(raw_values) + 1.0) / 2.0 * (self.high - self.low) + self.low
+        # Make sure raw_values are not too high/low (such that tanh would return exactly 1.0/-1.0,
+        # which would lead to +/-inf log-probs).
+        return (tf.clip_by_value(tf.math.tanh(raw_values), -1.0+SMALL_NUMBER, 1.0-SMALL_NUMBER) + 1.0) / 2.0 * (self.high - self.low) + self.low
 
     def _unsquash(self, values):
         return tf.math.atanh((values - self.low) / (self.high - self.low) * 2.0 - 1.0)

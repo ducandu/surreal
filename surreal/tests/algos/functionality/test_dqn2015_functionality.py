@@ -99,6 +99,10 @@ class TestDQN2015Functionality(unittest.TestCase):
             action_space=action_space
         ), name="my-dqn")
 
+        # Check slot of "x" in flattened mem.
+        check(dqn.memory.next_record_setup["x"][1], [3])
+        self.assertTrue(dqn.memory.batch_size is None)
+
         check(dqn.Q.get_weights(), dqn.Qt.get_weights())
 
         # Point actor(s) to the algo.
@@ -109,13 +113,14 @@ class TestDQN2015Functionality(unittest.TestCase):
         weights = [
             np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3], [0.4, 0.4]]),  # hidden layer kernel
             np.array([0.0, 0.0]),  # hidden layer bias
-            np.array([[-0.1, -0.2, -0.3, -0.4], [0.1, 0.2, 0.3, 0.4]]),  # output layer kernel
-            np.array([0.0, 0.0, 0.0, 0.0])  # output layer bias
+            np.array([[-0.4, -0.3, -0.2, -0.1], [0.4, 0.3, 0.2, 0.1]]),  # output layer kernel
+            np.array([0.1, 0.1, 1.0, 0.0])  # output layer bias
         ]
         dqn.Q.set_weights(weights)
 
         # Perform one step in the env.
         expected_action = np.argmax(dqn.Q(dqn.Phi(env.state)), axis=-1)
+        check(expected_action, 2)  # expect to go down
         env.run(ticks=1)  # ts=0 -> do nothing
         # Check action taken.
         check(dqn.a.value, expected_action)
@@ -125,9 +130,11 @@ class TestDQN2015Functionality(unittest.TestCase):
         check(env.terminal[0], False)
         # Check memory of dqn (after one time step, should still be empty).
         check(dqn.memory.size, 0)
+        self.assertTrue(dqn.memory.batch_size is None)
 
         # Perform one step in the env.
         expected_action = np.argmax(dqn.Q(dqn.Phi(env.state)), axis=-1)
+        check(expected_action, 2)  # expect to go down
         env.run(ticks=1)  # ts=1 -> no sync, no update
         # Check action taken.
         check(dqn.a.value, expected_action)
@@ -137,13 +144,15 @@ class TestDQN2015Functionality(unittest.TestCase):
         check(env.terminal[0], False)
         # Check memory of dqn.
         check(dqn.memory.size, 1)
+        self.assertTrue(dqn.memory.batch_size == 1)  # batch_size is now established.
         check(dqn.memory.memory, [
             np.array([2, 0, 0, 0]),
             np.array([-0.1, 0., 0., 0.]),
             np.array([False, False, False, False]),
-            np.array([[1., 0., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]]),
-            np.array([[0., 1., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]])
+            np.array([[1., 0., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]])
         ])
+        # Check next states.
+        check(dqn.memory.next_records, [np.array([[0., 1., 0., 0.]])])
 
         # Perform one step in the env.
         # What are the weights after the update?
@@ -166,7 +175,7 @@ class TestDQN2015Functionality(unittest.TestCase):
                 weights_q[i][idx] += 0.0001
                 lossd = DQN2015Loss()(dqn.memory.last_records_pulled, q, qt, dqn.config)
                 dL_over_dw = (lossd - loss) / 0.0001
-                check(weights_q_after_update[i][idx], weights_q_before_update[i][idx] - dL_over_dw * dqn.optimizer.learning_rate(0.0), decimals=4)
+                check(weights_q_after_update[i][idx], weights_q_before_update[i][idx] - dL_over_dw * dqn.optimizer.learning_rate(0.0), decimals=3)
 
         # Check state of the env after action taken.
         check(env.state[0], 1)
@@ -178,8 +187,9 @@ class TestDQN2015Functionality(unittest.TestCase):
             np.array([2, 2, 0, 0]),
             np.array([-0.1, -0.1, 0., 0.]),
             np.array([False, False, False, False]),
-            np.array([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]]),
-            np.array([[0., 1., 0., 0.], [0., 1., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]])
+            np.array([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]])
         ])
+        # Check next states.
+        check(dqn.memory.next_records, [np.array([[0., 1., 0., 0.]])])
 
         env.terminate()

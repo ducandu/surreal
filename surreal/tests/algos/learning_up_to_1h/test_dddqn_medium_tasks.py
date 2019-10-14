@@ -80,8 +80,9 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
         env.run(ticks=30000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
-        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
-        print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 > 150.0)
+        n = 10
+        mean_last_n = np.mean(env.historic_episodes_returns[-n:])
+        print("Avg return over last {} episodes: {}".format(n, mean_last_n))
+        self.assertTrue(mean_last_n > 150.0)
 
         env.terminate()

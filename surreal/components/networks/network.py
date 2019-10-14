@@ -273,6 +273,8 @@ class Network(Model):
                     if distribution is not None else None
                     for i, distribution in enumerate(self.distributions)
                 ]
+                #if tfp_distributions[0]:
+                #    print("Temp={}".format(tf.math.exp(adapter_outputs[0][0]).numpy()))
                 sample = [
                     distribution._sample(tfp_distributions[i], deterministic=deterministic)
                     if distribution is not None else adapter_outputs[i]

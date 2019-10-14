@@ -69,7 +69,7 @@ class LocalEnv(Env, metaclass=ABCMeta):
         a = 0
         a_left = self.num_actors
         for c in range(self.num_cores):
-            num = int(np.ceil(a_left / self.num_cores))
+            num = int(np.ceil(a_left / (self.num_cores - c)))
             self.process_to_actors[c] = np.arange(start=a, stop=a + num)
             a_left -= num
             a += num

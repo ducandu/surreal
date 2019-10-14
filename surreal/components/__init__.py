@@ -15,7 +15,8 @@
 # ==============================================================================
 
 from surreal.makeable import Makeable
-from surreal.components.misc import Decay, Constant, LinearDecay, ExponentialDecay, PolynomialDecay
+from surreal.components.misc import Decay, Constant, LinearDecay, ExponentialDecay, PolynomialDecay, NStep,\
+    SegmentTree, MinSumSegmentTree
 from surreal.components.distributions import *
 from surreal.components.preprocessors import *
 from surreal.components.loss_functions import LossFunction
@@ -24,7 +25,6 @@ from surreal.components.networks import *
 from surreal.components.optimizers import *
 from surreal.utils.util import default_dict
 
-
 # Register all specific sub-classes to Makeable's lookup dict.
 default_dict(Makeable.__lookup_classes__, Decay.__lookup_classes__)
 default_dict(Makeable.__lookup_classes__, Distribution.__lookup_classes__)
@@ -32,6 +32,9 @@ default_dict(Makeable.__lookup_classes__, Memory.__lookup_classes__)
 default_dict(Makeable.__lookup_classes__, Network.__lookup_classes__)
 default_dict(Makeable.__lookup_classes__, Optimizer.__lookup_classes__)
 default_dict(Makeable.__lookup_classes__, Preprocessor.__lookup_classes__)
+Makeable.__lookup_classes__["nstep"] = NStep
+Makeable.__lookup_classes__["segmenttree"] = SegmentTree
+Makeable.__lookup_classes__["minsumsegmenttree"] = MinSumSegmentTree
 
 __all__ = [] + \
           list(set(map(lambda x: x.__name__, Decay.__lookup_classes__.values()))) + \

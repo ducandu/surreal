@@ -425,11 +425,14 @@ def get_default_distribution_from_space(
     """
     Args:
         space (Space): The primitive Space for which to derive a default distribution spec.
+
         bounded_distribution_type (str): The lookup class string for a bounded Float distribution.
             Default: "beta".
+
         discrete_distribution_type(str): The class of distributions to use for discrete action core. For options
             check the components.distributions package. Default: categorical. Agents requiring reparameterization
             may require a GumbelSoftmax distribution instead.
+
         gumbel_softmax_temperature (float): Temperature parameter for the Gumbel-Softmax distribution used
             for discrete actions.
 

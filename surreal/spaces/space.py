@@ -131,6 +131,15 @@ class Space(Makeable, metaclass=ABCMeta):
         """
         raise NotImplementedError
 
+    def as_one_hot_float_space(self):
+        """
+        Returns:
+            This Space except that all int elements/sub-components, etc.. have been replaced by their corresponding
+            one-hot Float counterparts. E.g. An Int(3, shape=(2,)) will convert to Float(0.0, 1.0, shape=(2,3))).
+            A Dict/Tuple convert each of their child Space through this method as well.
+        """
+        return copy.deepcopy(self)  # default: return copy of self
+
     @abstractmethod
     def sample(self, size=None, fill_value=None, **kwargs):
         """
@@ -263,27 +272,27 @@ class Space(Makeable, metaclass=ABCMeta):
         return cp
 
     @abstractmethod
-    def create_variable(self, name, is_input_feed=False, is_python=False, local=False, **kwargs):
+    def create_variable(self):  #, name, is_input_feed=False, is_python=False, local=False, **kwargs):
         """
-        Returns a tf variable/placeholder that matches the space's shape.
+        Returns a numpy variable that matches the space's shape.
 
-        Args:
-            name (str): The name for the variable.
+        #Args:
+        #    name (str): The name for the variable.
 
-            is_input_feed (bool): Whether the returned object should be an input placeholder,
-                instead of a full variable.
+        #    is_input_feed (bool): Whether the returned object should be an input placeholder,
+        #        instead of a full variable.
 
-            is_python (bool): Whether to create a python-based (np) variable (list) or a backend-specific one.
-                Note: When using pytorch or tf, `is_python` should be False.
+        #    is_python (bool): Whether to create a python-based (np) variable (list) or a backend-specific one.
+        #        Note: When using pytorch or tf, `is_python` should be False.
 
-            local (bool): Whether the variable must not be shared across the network.
-                Default: False.
+        #    local (bool): Whether the variable must not be shared across the network.
+        #        Default: False.
 
-        Keyword Args:
-            To be passed on to backend-specific methods (e.g. trainable, initializer, etc..).
+        #Keyword Args:
+        #    To be passed on to backend-specific methods (e.g. trainable, initializer, etc..).
 
         Returns:
-            any: A Tensor Variable/Placeholder.
+            any: A numpy/python variable.
         """
         raise NotImplementedError
 

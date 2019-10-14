@@ -13,10 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 import json
+import re
+import tensorflow as tf
 import yaml
 
+from surreal import PATH_SUMMARIES
+from surreal.debug import UseTfSummaries
 from surreal.makeable import Makeable
 
 
@@ -30,6 +34,8 @@ class Algo(Makeable, metaclass=ABCMeta):
 
         # Savable components (e.g. networks).
         self.savables = []
+
+        self.summary_writer = tf.summary.create_file_writer(PATH_SUMMARIES) if UseTfSummaries else None
 
     @staticmethod
     def load(path, include_weights=True):

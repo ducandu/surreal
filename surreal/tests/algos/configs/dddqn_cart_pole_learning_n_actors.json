@@ -2,7 +2,6 @@
   "gamma": 0.99,
 
   "n_step": 5,
-  "n_step_only": false,
 
   "memory_capacity": 5000,
   "memory_batch_size": 256,

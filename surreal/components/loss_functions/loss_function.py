@@ -15,8 +15,6 @@
 
 from abc import ABCMeta, abstractmethod
 
-#from surreal import PATH_LOSS_LOGS
-from surreal.debug import StoreLosses
 from surreal.makeable import Makeable
 
 
@@ -32,12 +30,6 @@ class LossFunction(Makeable, metaclass=ABCMeta):
     def __call__(self, *args, **kwargs):
         self.num_calls += 1
         out = self.call(*args, **kwargs)
-
-        # For now, just print. Later, store to file, plot, etc..
-        if StoreLosses is True and self.num_calls % 100 == 0:
-            # If tuple is returned, assume that first slot is always the actual loss.
-            # Some loss functions return additional information.
-            print("Loss={}".format(out[0] if isinstance(out, tuple) else out))
 
         return out
 

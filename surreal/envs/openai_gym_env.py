@@ -16,6 +16,7 @@
 
 import gym
 import numpy as np
+import random
 import tensorflow.nest as nest
 
 from surreal.envs.local_env import LocalEnv, LocalEnvProcess
@@ -175,15 +176,16 @@ class OpenAIGymEnvProcess(LocalEnvProcess):
                 assert len(self.envs[i].unwrapped.get_action_meanings()) >= 3
 
         # Manually set the `frame_skip` property.
-        self.frame_skip = frame_skip
-        if self.frame_skip is not None:
+        self.frame_skip = frame_skip if isinstance(frame_skip, (tuple, list)) else None if frame_skip is None else \
+            (frame_skip, frame_skip + 1)
+        #if self.frame_skip is not None:
             # Skip externally and always maximize pixels over 2 consecutive frames.
             #if "NoFrameskip" in self.gym_envs[0].env:
             #    self.frame_skip = frame_skip
             # Set gym property.
             #else:
-            for i in range(self.num_actors):
-                self.envs[i].env.frameskip = self.frame_skip
+            #for i in range(self.num_actors):
+            #    self.envs[i].env.frameskip = self.frame_skip
 
         self.force_float32 = force_float32
 
@@ -196,12 +198,12 @@ class OpenAIGymEnvProcess(LocalEnvProcess):
                 self.true_terminal[i] = t
                 lives = self.envs[i].unwrapped.ale.lives()
                 # lives < self.lives -> lost a life so show terminal = true to learner.
-                if self.lives[i] > lives > 0:
+                if self.lives[i] > lives:
                     t = True
                     r = self.lost_life_reward
                 self.lives[i] = lives
 
-            # Episode truly ended -> reset env (and only update state (as the new next state in the new episode).
+            # Episode ended -> reset env (and only update state (as the new next state in the new episode).
             # reward and terminal stay (b/c the algo still needs to see them as terminal=True and r=[some last reward]).
             if t:
                 s = self._single_reset(i)
@@ -213,25 +215,21 @@ class OpenAIGymEnvProcess(LocalEnvProcess):
         return states, rewards, terminals
 
     def act_and_skip(self, actor_slot, action):
-        # TODO - allow for goal reward substitution for multi-goal envs
         # Frame skipping is unset or set as env property.
         if self.frame_skip is None:
             s, r, t, _ = self.envs[actor_slot].step(action)
         else:
-            # Do frame skip loop in our wrapper class.
-            r = 0.0
-            t = None
+            # Do frame skip manually.
             # State is the maximum color value over the last two frames to avoid the Atari2600 flickering problem.
+            r = 0.0
             s_last = None
             s_pre_last = None
-            for i in range(self.frame_skip):
-                state, reward, terminal, _ = self.envs[actor_slot].step(action)
-                if i == self.frame_skip - 2:
-                    s_pre_last = state
-                if i == self.frame_skip - 1:
-                    s_last = state
-                r += reward
-                if terminal:
+            for i in range(random.randint(self.frame_skip[0], self.frame_skip[1] - 1)):
+                s, r_frame, t, _ = self.envs[actor_slot].step(action)
+                s_pre_last = s_last if s_last is not None else s
+                s_last = s
+                r += r_frame
+                if t:
                     break
 
             # Take the max over last two states.
@@ -285,4 +283,4 @@ class OpenAIGymEnvProcess(LocalEnvProcess):
         return reset_state if self.force_float32 is False else np.array(reset_state, dtype=np.float32)
 
     def _single_render(self, type="human"):
-        self.env.render(type)
+        self.envs[0].render(type)

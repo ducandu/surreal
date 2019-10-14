@@ -55,9 +55,10 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
-        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
-        print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 >= 0.3)
+        n = 10
+        mean_last_n = np.mean(env.historic_episodes_returns[-n:])
+        print("Avg return over last {} episodes: {}".format(n, mean_last_n))
+        self.assertTrue(mean_last_n >= 0.3)
 
         # Check learnt Q-function.
         check(algo.Q(
@@ -94,9 +95,10 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
-        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
-        print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 >= 0.1)
+        n = 10
+        mean_last_n = np.mean(env.historic_episodes_returns[-n:])
+        print("Avg return over last {} episodes: {}".format(n, mean_last_n))
+        self.assertTrue(mean_last_n >= 0.1)
 
         # Check learnt Q-function for states 0 and 1, action=down (should be larger 0.0, ideally 0.5).
         action_values = algo.Q(preprocessor(np.array([0, 1])))
@@ -127,8 +129,9 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
-        mean_last_10 = np.mean(env.historic_episodes_returns[-10:])
-        print("Avg return over last 10 episodes: {}".format(mean_last_10))
-        self.assertTrue(mean_last_10 > 130.0)
+        n = 10
+        mean_last_n = np.mean(env.historic_episodes_returns[-n:])
+        print("Avg return over last {} episodes: {}".format(n, mean_last_n))
+        self.assertTrue(mean_last_n > 130.0)
 
         env.terminate()

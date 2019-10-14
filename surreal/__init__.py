@@ -27,11 +27,11 @@ else:
     SURREAL_HOME = os.path.join(SURREAL_HOME, ".surreal/")
 
 PATH_EPISODE_LOGS = SURREAL_HOME + "episodes/"
-PATH_LOSS_LOGS = SURREAL_HOME + "losses/"
 PATH_PREPROCESSING_LOGS = SURREAL_HOME + "preprocessing/"
+PATH_SUMMARIES = SURREAL_HOME + "summaries/"
 
 # Create dirs if necessary:
-for dir in [SURREAL_HOME, PATH_EPISODE_LOGS, PATH_LOSS_LOGS, PATH_PREPROCESSING_LOGS]:
+for dir in [SURREAL_HOME, PATH_EPISODE_LOGS, PATH_PREPROCESSING_LOGS, PATH_SUMMARIES]:
     if not os.path.exists(dir):
         try:
             os.makedirs(dir)
@@ -39,5 +39,5 @@ for dir in [SURREAL_HOME, PATH_EPISODE_LOGS, PATH_LOSS_LOGS, PATH_PREPROCESSING_
             pass
 
 __all__ = ["__version__", "Config", "Makeable",
-           "SURREAL_HOME", "PATH_EPISODE_LOGS", "PATH_LOSS_LOGS", "PATH_PREPROCESSING_LOGS"
+           "SURREAL_HOME", "PATH_EPISODE_LOGS", "PATH_PREPROCESSING_LOGS", "PATH_SUMMARIES"
            ]

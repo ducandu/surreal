@@ -17,14 +17,15 @@
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 import cv2
-import json
 import numpy as np
+import tensorflow as tf
 import threading
 import time
 
 from surreal import PATH_EPISODE_LOGS
 from surreal.debug import StoreEveryNthEpisode
 from surreal.makeable import Makeable
+from surreal.utils.util import SMALL_NUMBER
 
 
 class Env(Makeable, metaclass=ABCMeta):
@@ -128,20 +129,23 @@ class Env(Makeable, metaclass=ABCMeta):
             self.run_thread = threading.Thread(target=self._run, args=[ticks, actor_time_steps, episodes])
             self.run_thread.run()
 
-    def _run(self, ticks=None, actor_time_steps=None, episodes=None, render=None):
+    def _run(self, ticks=None, actor_time_steps=None, episodes_x=None, render=None):
         """
         The actual loop scaffold implementation (to run in thread or synchronously).
 
         Args:
             ticks (Optional[int]): The number of env-ticks to run for.
             actor_time_steps (Optional[int]): The number of single actor time-steps to run for.
-            episodes (Optional[int]): The number of episodes (across all actors) to execute.
+            #currently not supported! episodes (Optional[int]): The number of episodes (across all actors) to execute.
         """
         # Set max-time-steps.
+        # TODO: Have env keep track of time_percentage, not algo!
+        # TODO: Distinguish between time_percentage this run and time_percentage overall (through many different `run` calls).
+        # TODO: Solve dilemma of when only `episodes` given. What's the number of ticks then? Do we know the lengths of episodes up front? We could calculate time_percentage based on episodes done.
         self.max_ticks = (actor_time_steps / len(self.actors)) if actor_time_steps is not None else \
             (ticks or float("inf"))
         self.max_time_steps = self.max_ticks * len(self.actors)
-        self.max_episodes = episodes if episodes is not None else float("inf")
+        #self.max_episodes = episodes if episodes is not None else float("inf")
 
         # Build a algo-map for faster non-repetitive lookup.
         quick_algo_map = {}
@@ -149,20 +153,22 @@ class Env(Makeable, metaclass=ABCMeta):
             quick_algo_map[algo_name] = self.actors[self.rl_algos_to_actors[algo_name][0]].rl_algo  # type: RLAlgo
 
         tick = 0
-        episode = 0
+        #episode = 0
         last_time_measurement = time.time()
         last_episode_measurement = 0
         last_actor_ts_measurement = 0
-        while self.running is True and tick < self.max_ticks and episode < self.max_episodes:
+        last_tick_measurement = 0
+        while self.running is True and tick < self.max_ticks:  # and episode < self.max_episodes:
             # Loop through Actors, gather their observations/rewards/terminals and then tick each one of their
             # algos exactly once.
             for algo_name, actor_slots in self.rl_algos_to_actors.items():
+                algo = quick_algo_map[algo_name]
                 # If episode ended, send new-episode event to algo.
                 for slot in actor_slots:
                     if self.terminal[slot]:
                         if tick > 0:
                             self.num_episodes += 1
-                            episode += 1
+                            #episode += 1
                             last_episode_measurement += 1
 
                             # Switch on/off debug trajectory logging.
@@ -173,7 +179,9 @@ class Env(Makeable, metaclass=ABCMeta):
                                 self.debug_store_episode = False
 
                             # Send `episode_ends` event.
-                            quick_algo_map[algo_name].event_episode_ends(self, self.time_steps_algos[algo_name], slot)
+                            algo.event_episode_ends(self, self.time_steps_algos[algo_name], slot)
+                            #self.summarize(algo)
+
                             # Log all historic returns.
                             self.historic_episodes_returns.append(self.episodes_returns[slot])
                             # Log all historic episode lengths.
@@ -182,14 +190,15 @@ class Env(Makeable, metaclass=ABCMeta):
                             # Log stats sometimes.
                             if slot == 0:
                                 t = time.time()
-                                delta_t = t - last_time_measurement
+                                delta_t = (t - last_time_measurement) or SMALL_NUMBER
                                 print(
-                                    "Ticks(tx)={} ({} Actors); Episodes(ep)={}; "
-                                    "Avg ep len~{}; Avg R~{:.4f}; tx/s={:d}; ep/s={:.2f}".format(
-                                        self.tick, len(self.actors),
+                                    "Ticks(tx)={} Time-Steps(ts)={} ({} Actors); Episodes(ep)={}; "
+                                    "Avg ep len~{}; Avg R~{:.4f}; tx/s={:d}; ts/s={:d}; ep/s={:.2f}".format(
+                                        self.tick, self.time_step_all_actors, len(self.actors),
                                         self.num_episodes,
                                         int(np.mean(self.historic_episodes_lengths[-len(self.actors):])),
                                         np.mean(self.historic_episodes_returns[-len(self.actors):]),
+                                        int(last_tick_measurement / delta_t),
                                         int(last_actor_ts_measurement / delta_t),  # TODO: these two are wrong
                                         last_episode_measurement / delta_t
                                     )
@@ -197,24 +206,25 @@ class Env(Makeable, metaclass=ABCMeta):
                                 last_time_measurement = t
                                 last_episode_measurement = 0
                                 last_actor_ts_measurement = 0
+                                last_tick_measurement = 0
 
                         # Reset episode stats.
                         self.episodes_time_steps[slot] = 0
                         self.episodes_returns[slot] = 0.0
 
                         # Send `episode_starts` event.
-                        quick_algo_map[algo_name].event_episode_starts(
-                            self, self.time_steps_algos[algo_name], slot, self.state[slot]
-                        )
+                        algo.event_episode_starts(self, self.time_steps_algos[algo_name], slot, self.state[slot])
+                        #self.summarize(algo)
 
                 # Tick the algorithm passing self.
                 slots = np.array(actor_slots)
+
                 # TODO: This may become asynchronous in the future:
                 # TODO: Need to make sure that we do not expect `self.act` to be called by the algo within this tick.
-                quick_algo_map[algo_name].event_tick(
-                    self, self.time_steps_algos[algo_name], slots,
-                    self.reward[slots], self.terminal[slots], self.state[slots]
-                )
+                algo.event_tick(self, self.time_steps_algos[algo_name], slots, self.reward[slots], self.terminal[slots],
+                                self.state[slots])
+                self.summarize(algo)
+
                 # Accumulate episode rewards.
                 self.episodes_returns[slots] += self.reward[slots]
 
@@ -226,6 +236,7 @@ class Env(Makeable, metaclass=ABCMeta):
 
             # Time step for just this `run`.
             tick += 1
+            last_tick_measurement += 1
             # Global time step.
             self.tick += 1
             # Global time step (all actors).
@@ -307,6 +318,80 @@ class Env(Makeable, metaclass=ABCMeta):
         May be implemented or not.
         """
         pass
+
+    def summarize(self, algo, event=None):  # TODO: distinguish between different events?
+        """
+        Writes summary information (iff debug.UseTfSummaries is true) to the Algo's `summary_writer` object.
+        Summary information and setup can be passed into the Algo via `config.summaries`, which is a list of items,
+        that will simply be executed on the Algo context (prepending "self"):
+        E.g.:
+        "Q[0](np.array([[1.0, 0.0]]))": Will summarize the result of calling `self.Q[0](...)` on the Algo object.
+        "L_critic": Will summarize the value of `self.L_critic` on the Algo object.
+
+        Args:
+            algo (Algo): The Algo to summarize.
+            #event (str): One of "tick", "episode_starts", "episode_ends".
+        """
+        # Summaries not setup.
+        if algo.summary_writer is None:
+            return
+
+        with algo.summary_writer.as_default():
+            for summary in algo.config.summaries:
+                name = summary
+                code_ = summary
+                # Tuple/List of 2: Summary name + prop.
+                if isinstance(summary, (list, tuple)) and len(summary) == 2:
+                    name = summary[0]
+                    code_ = summary[1]
+
+                l_dict = {"algo": algo}
+                # Execute the code.
+                try:
+                    exec("result = algo.{}".format(code_), None, l_dict)
+                # This should never really fail.
+                except Exception as e:
+                    print("Summary ERROR '{}' in '{}'!".format(e, code_))
+                    continue
+
+                result = l_dict["result"]
+                # Array or Tensor?
+                if isinstance(result, (np.ndarray, tf.Tensor)):
+                    if result.shape == ():
+                        tf.summary.scalar(name, result, step=self.tick)
+                    elif result.shape == (1,):
+                        tf.summary.scalar(name, tf.squeeze(result), step=self.tick)
+                    # TODO: Add images, etc..?
+                    else:
+                        tf.summary.histogram(name, result, step=self.tick)
+                # Assume scalar.
+                else:
+                    tf.summary.scalar(name, result, step=self.tick)
+
+                #    # Array lookup.
+                #    mo = re.search(r'\[(\d+)\]$', summary)
+                #    if mo:
+                #        summary = re.sub(r'\[(\d+)\]$', "", summary)
+                #        prop = self.__getattribute__(summary)[int(mo.group(1))]
+                #    else:
+                #        prop = self.__getattribute__(summary)
+                #    tf.summary.scalar(name, prop, step=self.tick)
+
+                ## Some function call.
+                #elif isinstance(summary, dict):
+                #    name = summary.get("name", summary.get("prop", "NO_NAME"))
+                #    args = summary.get("args", [])
+                #    kwargs = summary.get("kwargs", {})
+                #    summary = summary.get("prop")
+                #    assert summary
+                #    # Array lookup.
+                #    mo = re.search(r'\[(\d+)\]$', summary)
+                #    if mo:
+                #        summary = re.sub(r'\[(\d+)\]$', "", summary)
+                #        prop = self.__getattribute__(summary)[int(mo.group(1))]
+                #    else:
+                #        prop = self.__getattribute__(summary)
+                #    tf.summary.scalar(name, tf.squeeze(prop(*args, **kwargs)), step=self.tick)
 
     @staticmethod
     def _debug_store(path, state):

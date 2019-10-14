@@ -14,19 +14,9 @@
 # limitations under the License.
 # ==============================================================================
 
-#from surreal.components.misc.batch_apply import BatchApply
-#from surreal.components.misc.batch_splitter import BatchSplitter
-#from surreal.components.misc.container_merger import ContainerMerger
-#from surreal.components.misc.multi_gpu_synchronizer import MultiGpuSynchronizer
-#from surreal.components.misc.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \
-#    OrnsteinUhlenbeckNoise
-#from surreal.components.misc.repeater_stack import RepeaterStack
-#from surreal.components.misc.sampler import Sampler
-#from surreal.components.misc.slice import Slice
-#from surreal.components.misc.staging_area import StagingArea
-#from surreal.components.misc.stop_gradient import StopGradient
-#from surreal.components.misc.synchronizable import Synchronizable
 from surreal.components.misc.decay_components import Decay, Constant, LinearDecay, PolynomialDecay, ExponentialDecay
+from surreal.components.misc.n_step import NStep
+from surreal.components.misc.segment_tree import SegmentTree, MinSumSegmentTree
 
 Decay.__lookup_classes__ = dict(
     decay=Decay,
@@ -39,20 +29,6 @@ Decay.__lookup_classes__ = dict(
 )
 Decay.__default_constructor__ = Constant
 
-#NoiseComponent.__lookup_classes__ = dict(
-#    noise=NoiseComponent,
-#    constantnoise=ConstantNoise,
-#    gaussiannoise=GaussianNoise,
-#    ornsteinuhlenbeck=OrnsteinUhlenbeckNoise,
-#    ornsteinuhlenbecknoise=OrnsteinUhlenbeckNoise
-#)
-#NoiseComponent.__default_constructor__ = GaussianNoise
 
-
-__all__ = ["BatchApply", "ContainerMerger",
-           "Synchronizable", "StopGradient", "RepeaterStack", "Slice",
-           "Sampler", "BatchSplitter", "MultiGpuSynchronizer"] + \
-          list(set(map(lambda x: x.__name__,
-                       list(Decay.__lookup_classes__.values()) #+
-                       #list(NoiseComponent.__lookup_classes__.values())
-                       )))
+__all__ = ["NStep", "SegmentTree", "MinSumSegmentTree"] + \
+          list(set(map(lambda x: x.__name__, list(Decay.__lookup_classes__.values()))))

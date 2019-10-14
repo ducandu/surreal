@@ -21,7 +21,7 @@ from surreal.utils.numpy import sigmoid, softmax, relu, one_hot
 #from surreal.utils.pytorch_util import pytorch_one_hot, PyTorchVariable
 from surreal.utils.errors import SurrealError, SurrealSpaceError, SurrealObsoletedError
 from surreal.utils.util import convert_dtype, get_shape, get_rank, force_tuple, force_list, \
-    LARGE_INTEGER, SMALL_NUMBER, MIN_LOG_STDDEV, MAX_LOG_STDDEV, default_dict, get_batch_size, complement_struct
+    LARGE_INTEGER, SMALL_NUMBER, MIN_LOG_NN_OUTPUT, MAX_LOG_NN_OUTPUT, default_dict, get_batch_size, complement_struct
 #    tf_logger, print_logging_handler, root_logger, logging_formatter, , get_num_return_values, \
 #    , get_method_type
 
@@ -35,5 +35,5 @@ __all__ = [
     "default_dict", "get_batch_size",
     #"DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",
     #"pytorch_one_hot", "PyTorchVariable",
-    "LARGE_INTEGER", "SMALL_NUMBER", "MIN_LOG_STDDEV", "MAX_LOG_STDDEV"
+    "LARGE_INTEGER", "SMALL_NUMBER", "MIN_LOG_NN_OUTPUT", "MAX_LOG_NN_OUTPUT"
 ]

@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from collections import Counter
 import numpy as np
 import unittest
 
@@ -76,10 +77,7 @@ class TestPrioritizedReplayBuffer(unittest.TestCase):
         self.assertTrue(memory.index == 7)
 
     def test_update_records(self):
-        memory = PrioritizedReplayBuffer(
-            record_space=self.record_space,
-            capacity=self.capacity
-        )
+        memory = PrioritizedReplayBuffer(record_space=self.record_space, capacity=self.capacity)
 
         # Insert record samples.
         num_records = 2
@@ -96,27 +94,68 @@ class TestPrioritizedReplayBuffer(unittest.TestCase):
         self.assertTrue(memory.index == num_records)
 
         # Update weight of index 0 to very small.
-        memory.update_records(np.array([0]), np.asarray([0.01]))
+        memory.update_records(np.array([0]), np.array([0.01]))
         # Expect to sample almost only index 1 (which still has a weight of 1.0).
         for _ in range(100):
             _, indices, weights = memory.get_records_with_indices_and_weights(num_records=1000)
             self.assertGreaterEqual(np.sum(indices), 980)
 
         # Update weight of index 1 to very small as well.
-        memory.update_records(np.array([0, 1]), np.asarray([0.01, 0.01]))
         # Expect to sample equally.
         for _ in range(100):
+            rand = np.random.random()
+            memory.update_records(np.array([0, 1]), np.array([rand, rand]))
             _, indices, _ = memory.get_records_with_indices_and_weights(num_records=1000)
             self.assertGreaterEqual(np.sum(indices), 400)
             self.assertLessEqual(np.sum(indices), 600)
 
-        # Update weights to be more similar.
-        memory.update_records(np.array([0, 1]), np.asarray([0.5, 1.0]))
+        # Update weights to be 1:2.
         # Expect to sample double as often index 1 over index 0 (1.0 = 2* 0.5).
         for _ in range(100):
+            rand = np.random.random() * 10
+            memory.update_records(np.array([0, 1]), np.array([rand, rand * 2]))
             _, indices, _ = memory.get_records_with_indices_and_weights(num_records=1000)
             self.assertGreaterEqual(np.sum(indices), 600)
             self.assertLessEqual(np.sum(indices), 750)
+
+        # Update weights to be 1:4.
+        # Expect to sample quadruple as often index 1 over index 0.
+        for _ in range(100):
+            rand = np.random.random() * 10
+            memory.update_records(np.array([0, 1]), np.array([rand, rand * 4]))
+            _, indices, _ = memory.get_records_with_indices_and_weights(num_records=1000)
+            self.assertGreaterEqual(np.sum(indices), 750)
+            self.assertLessEqual(np.sum(indices), 850)
+
+        # Update weights to be 1:9.
+        # Expect to sample 9 times as often index 1 over index 0.
+        for _ in range(100):
+            rand = np.random.random() * 10
+            memory.update_records(np.array([0, 1]), np.array([rand, rand * 9]))
+            _, indices, _ = memory.get_records_with_indices_and_weights(num_records=1000)
+            self.assertGreaterEqual(np.sum(indices), 850)
+            self.assertLessEqual(np.sum(indices), 950)
+
+        # Insert more record samples.
+        num_records = 10
+        data = self.record_space.sample(num_records)
+        memory.add_records(data)
+        self.assertTrue(memory.size == self.capacity)
+        self.assertTrue(memory.index == 2)
+
+        # Update weights to be 1.0 to 10.0 and sample a < 10 batch.
+        memory.update_records(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                              np.array([0.1, 1., 3., 8., 16., 32., 64., 128., 256., 512.]))
+        counts = Counter()
+        for _ in range(1000):
+            _, indices, _ = memory.get_records_with_indices_and_weights(num_records=np.random.randint(1, 6))
+            for i in indices:
+                counts[i] += 1
+        print(counts)
+        self.assertTrue(
+            counts[9] >= counts[8] >= counts[7] >= counts[6] >= counts[5] >=
+            counts[4] >= counts[3] >= counts[2] >= counts[1] >= counts[0]
+        )
 
     def test_segment_tree_insert_values(self):
         """

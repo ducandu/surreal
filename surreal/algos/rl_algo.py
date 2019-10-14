@@ -70,14 +70,14 @@ class RLAlgo(Algo, metaclass=ABCMeta):
         """
         pass
 
-    def is_time_to(self, what, tick, actor_time_steps, only_after=None):
+    def is_time_to(self, what, env_tick, actor_time_steps, only_after=None):
         """
         Helper method to figure out (according to some special config values), whether it's time to do something.
         E.g. update or sync a network.
 
         Args:
             what (str): The config to look for.
-            tick (int): The current env tick.
+            env_tick (int): The current env tick.
             actor_time_steps (int): The current env all-actor time step.
 
         Returns:
@@ -94,15 +94,15 @@ class RLAlgo(Algo, metaclass=ABCMeta):
                 self.config.__getattribute__("{}_after".format(what))
 
         # Go by env ticks.
-        if self.config.time_unit == "env_ticks":
+        if self.config.time_unit == "env_tick":
             # Not ready yet.
-            if do_not_what_before is not None and tick > do_not_what_before:
+            if do_not_what_before is not None and env_tick < do_not_what_before:
                 return False
-            # `tick` is contiguous, no danger missing any by modulus.
-            return tick % frequency == 0
+            # `env_tick` is contiguous, no danger missing any by modulus.
+            return env_tick % frequency == 0
         # Go by actor time steps.
         else:
-            assert self.config.time_unit == "time_steps"
+            assert self.config.time_unit == "time_step"
             assert hasattr(self.config, "last_{}".format(what))
             # Not ready yet.
             if do_not_what_before is not None and actor_time_steps < do_not_what_before:

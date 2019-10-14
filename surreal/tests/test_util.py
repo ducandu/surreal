@@ -162,6 +162,7 @@ def check(x, y, decimals=5, atol=None, rtol=None, false=False):
                 if false is False:
                     raise e
 
+
 class regex_pattern(object):
     def __init__(self, pattern):
         self.pattern = pattern

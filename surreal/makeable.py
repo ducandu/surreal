@@ -30,8 +30,8 @@ class Makeable(object):
     """
     Convenience class to easily construct objects from json/yaml structs or files.
     """
-    # An optional python dict with supported str-to-ctor mappings for this class.
-    __lookup_classes__ = None
+    # A python dict with supported str-to-ctor mappings for this class.
+    __lookup_classes__ = {}
     # An optional default constructor to use without any arguments in case `spec` is None
     # and args/kwargs are both empty. This may be a functools.partial object.
     __default_constructor__ = None

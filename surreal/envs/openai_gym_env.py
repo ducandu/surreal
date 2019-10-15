@@ -17,7 +17,7 @@
 import gym
 import numpy as np
 import random
-import tensorflow.nest as nest
+import tensorflow as tf
 
 from surreal.envs.local_env import LocalEnv, LocalEnvProcess
 from surreal.spaces import *
@@ -233,7 +233,7 @@ class OpenAIGymEnvProcess(LocalEnvProcess):
                     break
 
             # Take the max over last two states.
-            s = nest.map_structure(lambda s1, s2: np.maximum(s1, s2), s_last, s_pre_last)
+            s = tf.nest.map_structure(lambda s1, s2: np.maximum(s1, s2), s_last, s_pre_last)
 
         if self.force_float32 is True:
             s = np.array(s, dtype=np.float32)

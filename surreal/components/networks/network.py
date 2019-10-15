@@ -16,7 +16,6 @@
 import copy
 import inspect
 import tensorflow as tf
-import tensorflow.nest as nest
 
 from surreal.components.distribution_adapters.adapter_utils import get_adapter_type_from_distribution_type, \
     get_distribution_spec_from_adapter
@@ -113,7 +112,7 @@ class Network(Model):
                 "ERROR: Output space must not be ContainerSpace if no `output_space` is given in Network constructor!"
         else:
             self.output_space = Space.make(output_space)
-        self.flat_output_space = nest.flatten(self.output_space)
+        self.flat_output_space = tf.nest.flatten(self.output_space)
 
         # Find out whether we have a generic adapter-spec (one for all output components).
         generic_adapter_spec = None
@@ -211,7 +210,7 @@ class Network(Model):
             pre_concat_networks = complement_struct({}, reference_struct=self.input_space)
         flat_pre_concat_nn_spec = flatten_alongside(pre_concat_networks, alongside=self.input_space)
 
-        self.flat_input_space = nest.flatten(self.input_space)
+        self.flat_input_space = tf.nest.flatten(self.input_space)
 
         # Figure out our pre-concat NNs.
         for i, input_component in enumerate(self.flat_input_space):
@@ -254,7 +253,7 @@ class Network(Model):
 
         # If complex input -> pass through pre_concat_nns, then concat, then move on through core nn.
         if len(self.pre_concat_networks) > 0:
-            inputs = nest.flatten(inputs)
+            inputs = tf.nest.flatten(inputs)
             inputs = tf.concat([
                 self.pre_concat_networks[i](in_) if self.pre_concat_networks[i] is not None else in_
                 for i, in_ in enumerate(inputs)
@@ -280,7 +279,7 @@ class Network(Model):
                     if distribution is not None else adapter_outputs[i]
                     for i, distribution in enumerate(self.distributions)
                 ]
-                packed_sample = nest.pack_sequence_as(self.output_space.structure, sample)
+                packed_sample = tf.nest.pack_sequence_as(self.output_space.structure, sample)
                 # Return (combined?) likelihood values for each sample along with sample.
                 if likelihood is True or log_likelihood is True:
                     # Calculate probs/likelihoods (all in log-space for increased accuracy (for very small probs)).
@@ -344,7 +343,7 @@ class Network(Model):
                 if all(o is None for o in outputs):
                     return combined_likelihood_return
 
-                packed_out = nest.pack_sequence_as(self.output_space.structure, outputs)
+                packed_out = tf.nest.pack_sequence_as(self.output_space.structure, outputs)
                 if combined_likelihood_return is not None:
                     return packed_out, combined_likelihood_return
                 else:
@@ -353,11 +352,11 @@ class Network(Model):
         # NN already outputs containers.
         else:
             # Must match self.output_space.
-            nest.assert_same_structure(self.adapters, nn_out)
+            tf.nest.assert_same_structure(self.adapters, nn_out)
             adapter_outputs = [
-                adapter(out) for out, adapter in zip(nest.flatten(nn_out), nest.flatten(self.adapters))
+                adapter(out) for out, adapter in zip(tf.nest.flatten(nn_out), tf.nest.flatten(self.adapters))
             ]
-            return nest.pack_sequence_as(adapter_outputs, self.adapters)
+            return tf.nest.pack_sequence_as(adapter_outputs, self.adapters)
 
     def entropy(self, inputs):
         pass  # TODO: implement

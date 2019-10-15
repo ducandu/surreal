@@ -87,48 +87,11 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
 
         env.terminate()
 
-    def test_learning_on_breakout_WORKING___YAY(self):
-        # Create an Env object.
-        env = OpenAIGymEnv(
-            "Breakout-v4", actors=16, fire_after_reset=True, episodic_life=True, max_num_noops_after_reset=8
-        )
-
-        preprocessor = Preprocessor(
-            ImageCrop(x=5, y=29, width=150, height=167),
-            GrayScale(keepdims=True),
-            ImageResize(width=84, height=84, interpolation="bilinear"),
-            lambda inputs_: ((inputs_ / 128) - 1.0).astype(np.float32),  # simple preprocessor: [0,255] to [-1.0,1.0]
-            Sequence(sequence_length=4, adddim=False)
-        )
-        # Create a DQN2015Config.
-        config = DDDQNConfig.make(
-            "../configs/WORKING___YAY_dddqn_breakout_learning.json",
-            preprocessor=preprocessor,
-            state_space=env.actors[0].state_space,
-            action_space=env.actors[0].action_space
-        )
-        # Create an Algo object.
-        algo = DDDQN(config=config, name="my-dddqn")
-
-        # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
-
-        # Run and wait for env to complete.
-        env.run(actor_time_steps=10000000, sync=True, render=debug.RenderEnvInLearningTests)
-
-        # Check last n episode returns.
-        n = 10
-        mean_last_n = np.mean(env.historic_episodes_returns[-n:])
-        print("Avg return over last {} episodes: {}".format(n, mean_last_n))
-        self.assertTrue(mean_last_n > 150.0)
-
-        env.terminate()
-
     def test_learning_on_breakout(self):
         # Create an Env object.
         env = OpenAIGymEnv(
-            "Breakout-v4", actors=1, fire_after_reset=True, episodic_life=True, max_num_noops_after_reset=8
+            "Breakout-v4", actors=16, fire_after_reset=True, episodic_life=True, max_num_noops_after_reset=8,
+            frame_skip=(2, 5)
         )
 
         preprocessor = Preprocessor(

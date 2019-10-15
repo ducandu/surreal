@@ -27,7 +27,7 @@ algorithm is 40 lines at its core - not counting comments, import statements and
         self.memory.add_records(dict(s=self.s, a=self.a, r=r, s_=s_, t=t))  # s_ = s'; t = is s' terminal?
 ```
 
-[![asdsd](https://img.shields.io/badge/python-3.7-orange.svg)](https://www.python.org/downloads/release/python-374/)
+
 
 ```
     # Handle ε-greedy exploration (decay).

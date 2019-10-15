@@ -3,7 +3,7 @@
 
   "n_step": 4,
 
-  "memory_capacity": 75000,
+  "memory_capacity": 101376,
   "memory_batch_size": 256,
 
   "epsilon": {

@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import numpy as np
+import os
 import tensorflow as tf
 import unittest
 
@@ -41,17 +42,17 @@ class TestSACShortLearningTasks(unittest.TestCase):
 
         # Create a Config.
         config = SACConfig.make(
-            "../configs/sac_grid_world_2x2_learning.json",
+            "{}/../configs/sac_grid_world_2x2_learning.json".format(os.path.dirname(__file__)),
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space,
             summaries=[
                 "Ls_critic[0]", "L_actor", "L_alpha", "alpha",
-                {"name": "Q(0,^)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([0])}]},
-                {"name": "Q(0,->)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([1])}]},
-                {"name": "Q(0,v)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([2])}]},
-                {"name": "Q(0,<-)", "prop": "Q[0]", "args": [{"s": np.array([[1., 0., 0., 0.]]), "a": np.array([3])}]},
-                {"name": "Q(1,->)", "prop": "Q[0]", "args": [{"s": np.array([[0., 1., 0., 0.]]), "a": np.array([1])}]}
+                ("Q(0,^)", "Q[0]({'s': np.array([[1., 0., 0., 0.]]), 'a': np.array([0])})"),
+                ("Q(0,->)", "Q[0]({'s': np.array([[1., 0., 0., 0.]]), 'a': np.array([1])})"),
+                ("Q(0,v)", "Q[0]({'s': np.array([[1., 0., 0., 0.]]), 'a': np.array([2])})"),
+                ("Q(0,<-)", "Q[0]({'s': np.array([[1., 0., 0., 0.]]), 'a': np.array([3])})"),
+                ("Q(1,->)", "Q[0]({'s': np.array([[0., 1., 0., 0.]]), 'a': np.array([1])})")
             ]
         )
 
@@ -85,7 +86,7 @@ class TestSACShortLearningTasks(unittest.TestCase):
 
         # Create a Config.
         config = SACConfig.make(
-            "../configs/sac_cart_pole_learning_n_actors.json",
+            "{}/../configs/sac_cart_pole_learning_n_actors.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

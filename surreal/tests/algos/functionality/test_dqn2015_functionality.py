@@ -16,6 +16,7 @@
 from collections import namedtuple
 import copy
 import numpy as np
+import os
 import tensorflow as tf
 import tensorflow.keras as K
 import unittest
@@ -92,7 +93,7 @@ class TestDQN2015Functionality(unittest.TestCase):
 
         # Create a very simple DQN2015.
         dqn = DQN2015(config=DQN2015Config.make(
-            "../configs/dqn2015_grid_world_2x2_functionality.json",
+            "{}/../configs/dqn2015_grid_world_2x2_functionality.json".format(os.path.dirname(__file__)),
             preprocessor=preprocessor,
             q_network=q_network,
             state_space=state_space,

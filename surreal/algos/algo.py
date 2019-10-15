@@ -27,6 +27,11 @@ from surreal.makeable import Makeable
 class Algo(Makeable, metaclass=ABCMeta):
 
     def __init__(self, config, name=None):
+        """
+        Args:
+            config (AlgoConfig): The Algo's config object.
+            name (str): Some name for this Algo (used by the Env to send events to this Algo).
+        """
         super().__init__()
 
         self.config = config
@@ -35,7 +40,10 @@ class Algo(Makeable, metaclass=ABCMeta):
         # Savable components (e.g. networks).
         self.savables = []
 
-        self.summary_writer = tf.summary.create_file_writer(PATH_SUMMARIES) if UseTfSummaries else None
+        # Create a summary writer if necessary.
+        self.summary_writer = None
+        if UseTfSummaries is True and self.config.summaries is not None:
+            self.summary_writer = tf.summary.create_file_writer(PATH_SUMMARIES)
 
     @staticmethod
     def load(path, include_weights=True):

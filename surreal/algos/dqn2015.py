@@ -19,7 +19,7 @@ import tensorflow as tf
 
 from surreal.algos.rl_algo import RLAlgo
 from surreal.components import Network, ReplayBuffer, Optimizer, Decay, Preprocessor, LossFunction
-from surreal.config import Config
+from surreal.config import AlgoConfig
 from surreal.spaces import Dict, Int, Space
 
 
@@ -117,7 +117,7 @@ class DQN2015Loss(LossFunction):
         return 0.5 * tf.reduce_mean((td_targets - q_net(x, a)) ** 2)
 
 
-class DQN2015Config(Config):
+class DQN2015Config(AlgoConfig):
     """
     Config object for a DQN2015 Algorithm.
     """
@@ -129,7 +129,8 @@ class DQN2015Config(Config):
             gamma=0.99, epsilon=(1.0, 0.0), memory_capacity=10000,
             memory_batch_size=512,
             max_time_steps=None, update_after=0,
-            update_frequency=16, sync_frequency=4, time_unit="time_step"
+            update_frequency=16, sync_frequency=4, time_unit="time_step",
+            summaries=None
     ):
         """
         Args:
@@ -154,6 +155,10 @@ class DQN2015Config(Config):
             update_frequency (int): The frequency (in `time_unit`) with which to update our Q-network.
             sync_frequency (int): The frequency (in `time_unit`) with which to sync our target network.
             time_unit (str["time_step","env_tick"]): The time units we are using for update/sync decisions.
+
+            summaries (List[any]): A list of summaries to produce if `UseTfSummaries` in debug.json is true.
+                In the simplest case, this is a list of `self.[...]`-property names of the SAC object that should
+                be tracked after each tick.
         """
         assert time_unit in ["time_step", "env_tick"]
 

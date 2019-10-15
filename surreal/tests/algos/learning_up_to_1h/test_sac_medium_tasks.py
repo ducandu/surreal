@@ -13,24 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-
-# Copyright 2019 ducandu GmbH, All Rights Reserved
-# (this is a modified version of the Apache 2.0 licensed RLgraph file of the same name).
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
 import numpy as np
+import os
 import unittest
 
 from surreal.algos.sac import SAC, SACConfig
@@ -49,7 +33,7 @@ class TestSACMediumLearningTasks(unittest.TestCase):
 
         # Create a Config.
         config = SACConfig.make(
-            "../configs/sac_pendulum_learning.json",
+            "{}/../configs/sac_pendulum_learning.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
@@ -77,7 +61,7 @@ class TestSACMediumLearningTasks(unittest.TestCase):
 
         # Create a Config.
         config = SACConfig.make(
-            "../configs/sac_pendulum_learning_with_nstep.json",
+            "{}/../configs/sac_pendulum_learning_with_nstep.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
@@ -105,7 +89,7 @@ class TestSACMediumLearningTasks(unittest.TestCase):
 
         # Create a Config.
         config = SACConfig.make(
-            "../configs/sac_lunar_lander_continuous.json",
+            "{}/../configs/sac_lunar_lander_continuous.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space,
             summaries=["Ls_critic[0]", "L_actor", "L_alpha", "alpha"]

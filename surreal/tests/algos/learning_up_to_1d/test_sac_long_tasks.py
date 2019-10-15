@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import numpy as np
+import os
 import unittest
 
 from surreal.algos.sac import SAC, SACConfig
@@ -43,7 +44,7 @@ class TestSACLongLearningTasks(unittest.TestCase):
         )
         # Create a DQN2015Config.
         config = SACConfig.make(
-            "../configs/sac_space_invaders_learning.json",
+            "{}/../configs/sac_space_invaders_learning.json".format(os.path.dirname(__file__)),
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space,

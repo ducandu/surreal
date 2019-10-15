@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import numpy as np
+import os
 import unittest
 
 from surreal.algos.dqn2015 import DQN2015, DQN2015Config
@@ -32,7 +33,7 @@ class TestDQN2015MediumLearningTasks(unittest.TestCase):
 
         # Create a DQN2015Config.
         dqn_config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_lunar_lander_learning_n_actors.json",
+            "{}/../configs/dqn2015_lunar_lander_learning_n_actors.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

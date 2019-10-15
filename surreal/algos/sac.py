@@ -19,7 +19,7 @@ import tensorflow as tf
 
 from surreal.algos.rl_algo import RLAlgo
 from surreal.components import Network, Memory, Optimizer, Preprocessor, LossFunction, NStep
-from surreal.config import Config
+from surreal.config import AlgoConfig
 from surreal.spaces import Dict, Int, Space, ContainerSpace
 from surreal.utils.util import default_dict
 
@@ -199,7 +199,7 @@ class SACLoss(LossFunction):
         return losses_critic, abs_td_errors, tapes_critic, loss_actor, tape_actor, loss_alpha, tape_alpha
 
 
-class SACConfig(Config):
+class SACConfig(AlgoConfig):
     """
     Config object for a SAC Algo.
     """
@@ -273,7 +273,10 @@ class SACConfig(Config):
             sync_frequency (int): The frequency (in `time_unit`) with which to sync our target network.
             sync_tau (float): The target smoothing coefficient with which to synchronize the target Q-network.
             time_unit (str["time_step","env_tick"]): The time units we are using for update/sync decisions.
+
             summaries (List[any]): A list of summaries to produce if `UseTfSummaries` in debug.json is true.
+                In the simplest case, this is a list of `self.[...]`-property names of the SAC object that should
+                be tracked after each tick.
         """
         # If one not given, use a copy of the other NN and make sure the given network is not a done Keras object yet.
         if policy_network is None:

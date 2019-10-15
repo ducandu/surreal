@@ -13,8 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import tensorflow as tf
 import numpy as np
+import os
+import tensorflow as tf
 import unittest
 
 from surreal.algos.dddqn import DDDQN, DDDQNConfig, dueling
@@ -38,7 +39,7 @@ class TestDDDQNShortLearningTasks(unittest.TestCase):
         )
         # Create a Config.
         dqn_config = DDDQNConfig.make(
-            "../configs/dddqn_grid_world_2x2_learning.json",
+            "{}/../configs/dddqn_grid_world_2x2_learning.json".format(os.path.dirname(__file__)),
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
@@ -74,7 +75,7 @@ class TestDDDQNShortLearningTasks(unittest.TestCase):
 
         # Create a Config.
         dqn_config = DDDQNConfig.make(
-            "../configs/dddqn_cart_pole_learning_n_actors.json",  # TODO: filename wrong (num actors)
+            "{}/../configs/dddqn_cart_pole_learning_n_actors.json".format(os.path.dirname(__file__)),  # TODO: filename wrong (num actors)
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

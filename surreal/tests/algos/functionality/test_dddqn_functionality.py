@@ -15,6 +15,7 @@
 
 from collections import namedtuple
 import numpy as np
+import os
 import tensorflow as tf
 import unittest
 
@@ -84,7 +85,7 @@ class TestDDDQNFunctionality(unittest.TestCase):
         env = GridWorld("2x2", actors=1)
         # Create a very standard DDQN.
         dqn_config = DDDQNConfig.make(
-            "../configs/dddqn_grid_world_2x2_learning.json",
+            "{}/../configs/dddqn_grid_world_2x2_learning.json".format(os.path.dirname(__file__)),
             n_step=2,  # fix n-step to 2, just in case.
             gamma=0.5,  # fix gamma for unique-memory-checks purposes
             epsilon=[1.0, 0.5],  # fix epsilon to get lots of random actions.

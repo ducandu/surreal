@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import numpy as np
+import os
 import unittest
 
 from surreal.algos.dddqn import DDDQN, DDDQNConfig
@@ -35,7 +36,7 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
 
         # Create a DQN2015Config.
         dqn_config = DDDQNConfig.make(
-            "../configs/dddqn_mountain_car_learning_n_actors.json",  # TODO: filename wrong (num actors)
+            "{}/../configs/dddqn_mountain_car_learning_n_actors.json".format(os.path.dirname(__file__)),  # TODO: filename wrong (num actors)
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
@@ -63,7 +64,7 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
 
         # Create a DQN2015Config.
         config = DDDQNConfig.make(
-            "../configs/dddqn_lunar_lander_learning_n_actors.json",
+            "{}/../configs/dddqn_lunar_lander_learning_n_actors.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

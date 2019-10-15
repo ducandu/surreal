@@ -15,6 +15,7 @@
 
 import tensorflow as tf
 import numpy as np
+import os
 import unittest
 
 from surreal.algos.dqn2015 import DQN2015, DQN2015Config
@@ -38,7 +39,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         )
         # Create a Config.
         config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_grid_world_2x2_learning.json",
+            "{}/../configs/dqn2015_grid_world_2x2_learning.json".format(os.path.dirname(__file__)),
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
@@ -77,7 +78,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
 
         # Create a Config.
         config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_grid_world_4x4_learning_n_actors.json",
+            "{}/../configs/dqn2015_grid_world_4x4_learning_n_actors.json".format(os.path.dirname(__file__)),
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
@@ -111,7 +112,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
 
         # Create a Config.
         config = DQN2015Config.make(  # type: DQN2015Config
-            "../configs/dqn2015_cart_pole_learning_n_actors.json",
+            "{}/../configs/dqn2015_cart_pole_learning_n_actors.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

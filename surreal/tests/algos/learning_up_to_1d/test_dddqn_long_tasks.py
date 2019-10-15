@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import numpy as np
+import os
 import unittest
 
 from surreal.algos.dddqn import DDDQN, DDDQNConfig
@@ -57,7 +58,7 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
 
         # Create a DQN2015Config.
         config = DDDQNConfig.make(
-            "../configs/dddqn_car_racing_learning.json",
+            "{}/../configs/dddqn_car_racing_learning.json".format(os.path.dirname(__file__)),
             preprocessor=Preprocessor(
                 #ImageCrop(x=0, y=0, width=150, height=167),
                 GrayScale(keepdims=True),
@@ -102,7 +103,7 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
         )
         # Create a DQN2015Config.
         config = DDDQNConfig.make(
-            "../configs/dddqn_breakout_learning.json",
+            "{}/../configs/dddqn_breakout_learning.json".format(os.path.dirname(__file__)),
             preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space

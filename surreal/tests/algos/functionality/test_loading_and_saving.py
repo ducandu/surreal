@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import tensorflow as tf
 import unittest
 
@@ -31,7 +32,7 @@ class TestLoadingAndSavingOfAlgos(unittest.TestCase):
 
         # Create a very simple DQN2015.
         dqn = DQN2015(config=DQN2015Config.make(
-            "../configs/dqn2015_grid_world_2x2_learning.json",
+            "{}/../configs/dqn2015_grid_world_2x2_learning.json".format(os.path.dirname(__file__)),
             preprocessor=lambda inputs_: tf.one_hot(inputs_, depth=state_space.num_categories),
             state_space=state_space,
             action_space=action_space

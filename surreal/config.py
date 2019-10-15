@@ -27,3 +27,10 @@ class Config(Makeable):
             if k == "self" or k == "__class__":
                 continue
             setattr(self, k, v)
+
+
+class AlgoConfig(Config):
+    def __init__(self, *args, **kwargs):
+        self.summaries = None
+
+        super().__init__(*args, **kwargs)

@@ -1,6 +1,6 @@
 <!--[![PyPI version](https://badge.fury.io/py/surreal.svg)](https://badge.fury.io/py/surreal)-->
 [![Python 3.7](https://img.shields.io/badge/python-3.7-orange.svg)](https://www.python.org/downloads/release/python-374/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/surreal/surreal/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ducandu/surreal/blob/master/LICENSE)
 <!--[![Documentation Status](https://readthedocs.org/projects/surreal/badge/?version=latest)](https://surreal.readthedocs.io/en/latest/?badge=latest)-->
 <!--[![Build Status](https://travis-ci.org/surreal/surreal.svg?branch=master)](https://travis-ci.org/surreal/surreal)-->
 

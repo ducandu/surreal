@@ -106,10 +106,10 @@ Running Atari experiments on a 24Gb machine with a memory that can keep 120k rec
 
 ### Currently implemented algorithms (stay tuned for more):
 
-- **DQN2015** (2015)
-- **DDDQN** (double/dueling/n-step/prioritized-replay Q-learning)
-- **SAC** (Soft Actor-Critic in its Feb 2019 version) for continuous as well as discrete action spaces.
-- Coming up next: **DADS** (an auto option discovery algo)
+- **DQN2015** (deep Q-Networkin its 2015 Nature paper version) - [paper](https://www.nature.com/articles/nature14236)
+- **DDDQN** (double/dueling/n-step/prioritized-replay Q-learning) - papers: [double](https://arxiv.org/abs/1509.06461) [dueling](https://arxiv.org/abs/1511.06581) [n-step](https://arxiv.org/abs/1901.07510) [PR](https://arxiv.org/abs/1511.05952)
+- **SAC** (Soft Actor-Critic in its Feb 2019 version for continuous AND discrete(!) action spaces) - [paper](https://arxiv.org/abs/1812.05905)
+- *Coming up next:* **DADS** (Dynamics-Aware Unsupervised Discovery of Skills) - [paper](https://arxiv.org/abs/1907.01657)
 
 
 <!--### Cite

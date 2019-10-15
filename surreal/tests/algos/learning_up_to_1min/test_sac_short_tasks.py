@@ -59,8 +59,7 @@ class TestSACShortLearningTasks(unittest.TestCase):
         algo = SAC(config=config, name="my-sac")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=700, sync=True, render=debug.RenderEnvInLearningTests)
@@ -95,8 +94,7 @@ class TestSACShortLearningTasks(unittest.TestCase):
         algo = SAC(config=config, name="my-sac")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=2000, sync=True, render=debug.RenderEnvInLearningTests)

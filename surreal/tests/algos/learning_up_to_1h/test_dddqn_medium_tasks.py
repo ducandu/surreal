@@ -26,7 +26,7 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
     """
     Tests the DDDQN algo on up-to-1-hour learning problems.
     """
-    def test_learning_on_mountain_car_4_actors(self):
+    def test_dddqn_learning_on_mountain_car_4_actors(self):
         # Note: MountainCar is tricky as per its reward function: Hence, we need a quite large episode
         # cutoff to solve it with ease.
         # With a large enough n-step, the algo should be able to learn the env very quickly after having solved
@@ -44,8 +44,7 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
         algo = DDDQN(config=dqn_config, name="my-dqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=7000, sync=True, render=debug.RenderEnvInLearningTests)
@@ -58,7 +57,7 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
 
         env.terminate()
 
-    def test_learning_on_lunar_lander_with_4_actors(self):
+    def test_dddqn_learning_on_lunar_lander_with_4_actors(self):
         # Create an Env object.
         env = OpenAIGymEnv("LunarLander-v2", actors=4)
 
@@ -73,8 +72,7 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
         algo = DDDQN(config=config, name="my-dddqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=30000, sync=True, render=debug.RenderEnvInLearningTests)

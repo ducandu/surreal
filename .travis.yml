@@ -9,27 +9,27 @@ matrix:
   include:
   - env:
     - DOCKER_JOB_NAME='surreal_py3'
-    - DOCKER_IMAGE='surreal/surreal:latest'
+    - DOCKER_IMAGE='ducandu/surreal:minimal'
 
 before_install:
   - docker pull ${DOCKER_IMAGE}
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/surreal ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
 script:
-  # Test learning capabilities of the Algos.
+  # Test Algo learning.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/algos/learning_up_to_1min/test_dqn2015_short_tasks.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/algos/learning_up_to_1min/test_dddqn_short_tasks.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/algos/learning_up_to_1min/test_sac_short_tasks.py';
 
-  # Test Algo functionalities.
+  # Test Algo functionality.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/algos/functionality/test_dqn2015_functionality.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/algos/functionality/test_dddqn_functionality.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/algos/functionality/test_sac_functionality.py';
 
-  # Test the core lib.
+  # Test core lib.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/core/test_spaces.py';
 
-  # Test the Components.
+  # Test Components.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/components/test_decays.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/components/test_distribution_adapters.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/components/test_distributions.py';
@@ -40,7 +40,7 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/components/test_prioritized_replay_buffer.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/components/test_replay_buffer.py';
 
-  # Test all our Envs.
+  # Test the Envs.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s surreal/tests/environments';
 
 

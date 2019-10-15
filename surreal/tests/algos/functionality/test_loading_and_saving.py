@@ -38,8 +38,7 @@ class TestLoadingAndSavingOfAlgos(unittest.TestCase):
         ), name="my-dqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(dqn)
+        env.point_all_actors_to_algo(algo)
 
         dqn.save("test.json")
 

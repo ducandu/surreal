@@ -26,7 +26,7 @@ class TestDQN2015MediumLearningTasks(unittest.TestCase):
     """
     Tests the DQN2015 algo on up-to-1-hour learning problems.
     """
-    def test_learning_on_lunar_lander_with_8_actors(self):
+    def test_dqn2015_learning_on_lunar_lander_with_8_actors(self):
         # Create an Env object.
         env = OpenAIGymEnv("LunarLander-v2", actors=8)
 
@@ -41,8 +41,7 @@ class TestDQN2015MediumLearningTasks(unittest.TestCase):
         algo = DQN2015(config=dqn_config, name="my-dqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=50000, sync=True, render=debug.RenderEnvInLearningTests)

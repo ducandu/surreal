@@ -17,6 +17,7 @@
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 import cv2
+import logging
 import numpy as np
 import tensorflow as tf
 import threading
@@ -191,7 +192,7 @@ class Env(Makeable, metaclass=ABCMeta):
                             if slot == 0:
                                 t = time.time()
                                 delta_t = (t - last_time_measurement) or SMALL_NUMBER
-                                print(
+                                logging.info(
                                     "Ticks(tx)={} Time-Steps(ts)={} ({} Actors); Episodes(ep)={}; "
                                     "Avg ep len~{}; Avg R~{:.4f}; tx/s={:d}; ts/s={:d}; ep/s={:.2f}".format(
                                         self.tick, self.time_step_all_actors, len(self.actors),
@@ -251,10 +252,10 @@ class Env(Makeable, metaclass=ABCMeta):
         # Interrupted.
         if tick < self.max_ticks:
             # TODO: What if paused, may one resume?
-            print("Run paused at tick {}.".format(tick))
+            logging.info("Run paused at tick {}.".format(tick))
         # Cleanly finished run.
         else:
-            print("Run done after {} ticks.".format(tick))
+            logging.info("Run done after {} ticks.".format(tick))
 
         # Reset max-time-steps to undefined after each run.
         self.max_ticks = None
@@ -319,6 +320,16 @@ class Env(Makeable, metaclass=ABCMeta):
         """
         pass
 
+    def point_all_actors_to_algo(self, rl_algo):
+        """
+        Points all of this Env's Actors to the given RLAlgo object.
+
+        Args:
+            rl_algo (RLAlgo): The RLAlgo to point to.
+        """
+        for actor in self.actors:
+            actor.set_algo(rl_algo)
+
     def summarize(self, algo, event=None):  # TODO: distinguish between different events?
         """
         Writes summary information (iff debug.UseTfSummaries is true) to the Algo's `summary_writer` object.
@@ -351,7 +362,7 @@ class Env(Makeable, metaclass=ABCMeta):
                     exec("result = algo.{}".format(code_), None, l_dict)
                 # This should never really fail.
                 except Exception as e:
-                    print("Summary ERROR '{}' in '{}'!".format(e, code_))
+                    logging.error("Summary ERROR '{}' in '{}'!".format(e, code_))
                     continue
 
                 result = l_dict["result"]
@@ -368,31 +379,6 @@ class Env(Makeable, metaclass=ABCMeta):
                 else:
                     tf.summary.scalar(name, result, step=self.tick)
 
-                #    # Array lookup.
-                #    mo = re.search(r'\[(\d+)\]$', summary)
-                #    if mo:
-                #        summary = re.sub(r'\[(\d+)\]$', "", summary)
-                #        prop = self.__getattribute__(summary)[int(mo.group(1))]
-                #    else:
-                #        prop = self.__getattribute__(summary)
-                #    tf.summary.scalar(name, prop, step=self.tick)
-
-                ## Some function call.
-                #elif isinstance(summary, dict):
-                #    name = summary.get("name", summary.get("prop", "NO_NAME"))
-                #    args = summary.get("args", [])
-                #    kwargs = summary.get("kwargs", {})
-                #    summary = summary.get("prop")
-                #    assert summary
-                #    # Array lookup.
-                #    mo = re.search(r'\[(\d+)\]$', summary)
-                #    if mo:
-                #        summary = re.sub(r'\[(\d+)\]$', "", summary)
-                #        prop = self.__getattribute__(summary)[int(mo.group(1))]
-                #    else:
-                #        prop = self.__getattribute__(summary)
-                #    tf.summary.scalar(name, tf.squeeze(prop(*args, **kwargs)), step=self.tick)
-
     @staticmethod
     def _debug_store(path, state):
         # TODO: state Dict or Tuple, etc..
@@ -401,7 +387,7 @@ class Env(Makeable, metaclass=ABCMeta):
             cv2.imwrite(path+".png", state)
         # Some other data.
         else:
-            print("***WARNING: No mechanism yet for state debug-saving if not image!")
+            logging.warning("***WARNING: No mechanism yet for state debug-saving if not image!")
             #with open(path, "w") as file:
             #    json.dump(file, state)
 

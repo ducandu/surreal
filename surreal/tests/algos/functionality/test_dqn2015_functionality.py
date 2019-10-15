@@ -106,8 +106,7 @@ class TestDQN2015Functionality(unittest.TestCase):
         check(dqn.Q.get_weights(), dqn.Qt.get_weights())
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(dqn)
+        env.point_all_actors_to_algo(dqn)
 
         # Set our weights fixed.
         weights = [

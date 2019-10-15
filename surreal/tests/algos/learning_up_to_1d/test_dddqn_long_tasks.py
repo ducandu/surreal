@@ -28,7 +28,7 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
     """
     Tests the DDDQN algo on up-to-1-day learning problems.
     """
-    def test_learning_on_car_racing(self):
+    def test_dddqn_learning_on_car_racing(self):
         # Action-map: Discrete to Continuous, 9 actions.
         # 0=noop
         # 1=left
@@ -73,8 +73,7 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
         algo = DDDQN(config=config, name="my-dddqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=20000, sync=True, render=debug.RenderEnvInLearningTests)
@@ -87,7 +86,7 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
 
         env.terminate()
 
-    def test_learning_on_breakout(self):
+    def test_dddqn_learning_on_breakout(self):
         # Create an Env object.
         env = OpenAIGymEnv(
             "Breakout-v4", actors=16, fire_after_reset=True, episodic_life=True, max_num_noops_after_reset=8,
@@ -112,8 +111,7 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
         algo = DDDQN(config=config, name="my-dddqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(actor_time_steps=10000000, sync=True, render=debug.RenderEnvInLearningTests)

@@ -95,9 +95,9 @@ class TestDDDQNFunctionality(unittest.TestCase):
             action_space=env.actors[0].action_space
         )
         algo = DDDQN(config=dqn_config, name="my-dddqn")
+
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run for n ticks, then check memory contents for correct n-step tuples.
         for _ in range(5):

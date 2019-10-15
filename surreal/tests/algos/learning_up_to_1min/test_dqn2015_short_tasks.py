@@ -48,8 +48,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         algo = DQN2015(config=config, name="my-dqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)
@@ -88,8 +87,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         algo = DQN2015(config=config, name="my-dqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)
@@ -122,8 +120,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         algo = DQN2015(config=config, name="my-dqn")
 
         # Point actor(s) to the algo.
-        for actor in env.actors:
-            actor.set_algo(algo)
+        env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
         env.run(ticks=3000, sync=True, render=debug.RenderEnvInLearningTests)

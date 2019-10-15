@@ -9,7 +9,7 @@ matrix:
   include:
   - env:
     - DOCKER_JOB_NAME='surreal_py3'
-    - DOCKER_IMAGE='ducandu/surreal:minimal'
+    - DOCKER_IMAGE='ducandu/surreal:travis'
 
 before_install:
   - docker pull ${DOCKER_IMAGE}

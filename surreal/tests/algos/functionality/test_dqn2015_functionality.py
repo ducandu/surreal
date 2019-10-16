@@ -152,7 +152,7 @@ class TestDQN2015Functionality(unittest.TestCase):
             np.array([[1., 0., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]])
         ])
         # Check next states.
-        check(dqn.memory.next_records, [np.array([[0., 1., 0., 0.]])])
+        check(dqn.memory.next_records, [[np.array([[0., 1., 0., 0.]])]])
 
         # Perform one step in the env.
         # What are the weights after the update?
@@ -190,6 +190,6 @@ class TestDQN2015Functionality(unittest.TestCase):
             np.array([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]])
         ])
         # Check next states.
-        check(dqn.memory.next_records, [np.array([[0., 1., 0., 0.]])])
+        check(dqn.memory.next_records, [[np.array([[0., 1., 0., 0.]])]])
 
         env.terminate()

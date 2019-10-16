@@ -37,8 +37,8 @@ class DDDQN(RLAlgo):
     def __init__(self, config, name=None):
         super().__init__(config, name)
         self.Phi = Preprocessor.make(config.preprocessor)
-        self.x = self.Phi(Space.make(self.config.state_space).with_batch())  # preprocessed states (x)
-        self.a = Space.make(self.config.action_space).with_batch()  # actions (a)
+        self.x = self.Phi(Space.make(config.state_space).with_batch())  # preprocessed states (x)
+        self.a = Space.make(config.action_space).with_batch()  # actions (a)
         self.Q = Network.make(
             network=config.q_network, input_space=self.x,
             output_space=Dict(A=self.a, V=Float().with_batch()),  # dueling network outputs

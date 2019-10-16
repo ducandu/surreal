@@ -34,12 +34,12 @@ class SAC(RLAlgo):
     def __init__(self, config, name=None):
         super().__init__(config, name)
         self.preprocessor = Preprocessor.make(config.preprocessor)
-        self.s = self.preprocessor(Space.make(self.config.state_space).with_batch())  # preprocessed states (x)
-        self.a = Space.make(self.config.action_space).with_batch()  # actions (a)
+        self.s = self.preprocessor(Space.make(config.state_space).with_batch())  # preprocessed states (x)
+        self.a = Space.make(config.action_space).with_batch()  # actions (a)
         self.a_soft = self.a.as_one_hot_float_space()  # soft-one-hot actions (if Int elements in action space)
         self.pi = Network.make(distributions=dict(  # policy (π)
-            bounded_distribution_type=self.config.bounded_distribution_type, discrete_distribution_type="gumbel-softmax",
-            gumbel_softmax_temperature=self.config.gumbel_softmax_temperature
+            bounded_distribution_type=config.bounded_distribution_type, discrete_distribution_type="gumbel-softmax",
+            gumbel_softmax_temperature=config.gumbel_softmax_temperature
         ), input_space=self.s, output_space=self.a, **config.policy_network)
         self.Q = []  # the Q-networks
         for i in range(config.num_q_networks):

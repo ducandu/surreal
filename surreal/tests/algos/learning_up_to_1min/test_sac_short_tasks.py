@@ -69,7 +69,7 @@ class TestSACShortLearningTasks(unittest.TestCase):
         q = algo.Q[0](dict(s=one_hot(np.array([0, 0, 0, 0, 1, 1, 1, 1]), depth=4), a=np.array([0, 1, 2, 3, 0, 1, 2, 3])))
         print(q)
         self.assertTrue(q[1] < min(q[2:]) and q[1] < q[0])  # q(s=0,a=right) is the worst
-        self.assertTrue(q[5] > q[4] and q[5] > max(q[6:]))  # q(s=1,a=right) is the best in state 1
+        check(q[5], 1.0, decimals=1)  # Q(1,->) is close to 1.0.
         #check(q, [0.8, -5.0, 0.9, 0.8, 0.8, 1.0, 0.9, 0.9], decimals=1)  # a=up,down,left,right
 
         # Check last n episode returns.

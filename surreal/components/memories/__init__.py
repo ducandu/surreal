@@ -1,5 +1,4 @@
 # Copyright 2019 ducandu GmbH, All Rights Reserved
-# (this is a modified version of the Apache 2.0 licensed RLgraph file of the same name).
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +14,17 @@
 # ==============================================================================
 
 from surreal.components.memories.memory import Memory
+from surreal.components.memories.fifo_buffer import FIFOBuffer
 from surreal.components.memories.prioritized_replay_buffer import PrioritizedReplayBuffer
 from surreal.components.memories.replay_buffer import ReplayBuffer
-#from surreal.components.memories.ring_buffer import RingBuffer
 
 Memory.__lookup_classes__ = dict(
+    fifobuffer=FIFOBuffer,
+    fifo=FIFOBuffer,
     prioritizedreplay=PrioritizedReplayBuffer,
     prioritizedreplaybuffer=PrioritizedReplayBuffer,
     replaybuffer=ReplayBuffer,
-    replaymemory=ReplayBuffer,
-    #ringbuffer=RingBuffer
+    replaymemory=ReplayBuffer
 )
 Memory.__default_constructor__ = ReplayBuffer
 

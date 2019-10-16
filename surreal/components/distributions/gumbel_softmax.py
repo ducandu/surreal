@@ -45,9 +45,10 @@ class GumbelSoftmax(Distribution):
         return tfp.distributions.RelaxedOneHotCategorical(temperature=self.temperature, logits=parameters)
 
     def _sample_deterministic(self, distribution):
-        raise NotImplementedError
-        ## Cast to float again because this is called from a tf.cond where the other option calls a stochastic
-        ## sample returning a float.
+        # Simply return probs.
+        return distribution._distribution.probs
+        # Cast to float again because this is called from a tf.cond where the other option calls a stochastic
+        # sample returning a float.
         #argmax = tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32)
         #sample = tf.cast(argmax, dtype=tf.float32)
         ## Argmax turns (?, n) into (?,), not (?, 1)

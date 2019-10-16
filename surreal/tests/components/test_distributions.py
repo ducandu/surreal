@@ -422,7 +422,7 @@ class TestDistributions(unittest.TestCase):
 
         # Batch of size=2 and deterministic (True).
         input_ = param_space.sample(2)
-        expected = np.argmax(input_, axis=-1)
+        expected = softmax(input_)
         # Sample n times, expect always argmax value (deterministic draw).
         for _ in range(50):
             out = gumble_softmax_distribution.sample(input_, deterministic=True)

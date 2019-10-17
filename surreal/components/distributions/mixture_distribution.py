@@ -37,15 +37,11 @@ class MixtureDistribution(Distribution):
         self.sub_distributions = []
         for i, s in enumerate(sub_distributions):
             if isinstance(s, str):
-                self.sub_distributions.append(Distribution.make(
-                    {"type": s, "scope": "sub-distribution-{}".format(i)}
-                ))
+                self.sub_distributions.append(Distribution.make({"type": s}))
             else:
                 self.sub_distributions.append(Distribution.make(s))
 
         self.categorical = Categorical()
-
-        #self.add_components(self.categorical, *self.sub_distributions)
 
     def parameterize_distribution(self, parameters):
         """
@@ -66,7 +62,7 @@ class MixtureDistribution(Distribution):
 
         components = []
         for i, s in enumerate(self.sub_distributions):
-            components.append(s.get_distribution(parameters["parameters{}".format(i)]))
+            components.append(s.parameterize_distribution(parameters["parameters{}".format(i)]))
 
         return tfp.distributions.Mixture(
             cat=self.categorical.parameterize_distribution(parameters["categorical"]),

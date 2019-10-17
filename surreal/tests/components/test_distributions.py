@@ -99,7 +99,7 @@ class TestDistributions(unittest.TestCase):
             out = categorical.sample_stochastic(input_)
             outs.append(out)
 
-        check(np.mean(outs), 1.0, decimals=1)
+        check(np.mean(outs), 1.0, decimals=0)
 
         input_ = param_space.sample(1)
         probs = softmax(input_)
@@ -289,24 +289,16 @@ class TestDistributions(unittest.TestCase):
             main_axes="B"
         )
         values_space = Float(shape=(num_events_per_multivariate,), main_axes="B")
-        input_spaces = dict(
-            parameters=param_space,
-            values=values_space,
-            deterministic=bool,
-        )
-
         # The Component to test.
         mixture = MixtureDistribution(
             # Try different spec types.
-            MultivariateNormal(), "multi-variate-normal", "multivariate_normal",
-            switched_off_apis={"entropy", "kl_divergence"}
+            MultivariateNormal(), "multi-variate-normal", "multivariate_normal"
         )
-        test = ComponentTest(component=mixture, input_spaces=input_spaces)
 
         # Batch of size=n and deterministic (True).
-        input_ = [input_spaces["parameters"].sample(1), True]
+        input_ = param_space.sample(1)
         # Make probs for categorical.
-        categorical_probs = softmax(input_[0]["categorical"])
+        categorical_probs = softmax(input_["categorical"])
 
         # Note: Usually, the deterministic draw should return the max-likelihood value
         # Max-likelihood for a 3-Mixed Bivariate: mean-of-argmax(categorical)()
@@ -316,29 +308,29 @@ class TestDistributions(unittest.TestCase):
         #    input_[0]["categorical"][:, 2:3] * input_[0]["parameters2"][0]
 
         # The mean value is a 2D vector (bivariate distribution).
-        expected = categorical_probs[:, 0:1] * input_[0]["parameters0"][0] + \
-            categorical_probs[:, 1:2] * input_[0]["parameters1"][0] + \
-            categorical_probs[:, 2:3] * input_[0]["parameters2"][0]
+        expected = categorical_probs[:, 0:1] * input_["parameters0"][0] + \
+            categorical_probs[:, 1:2] * input_["parameters1"][0] + \
+            categorical_probs[:, 2:3] * input_["parameters2"][0]
 
-        for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
+        for _ in range(20):
+            out = mixture.sample(input_, deterministic=True)
+            check(out, expected)
+            out = mixture.sample_deterministic(input_)
+            check(out, expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [input_spaces["parameters"].sample(1), False]
+        input_ = param_space.sample(1)
         # Make probs for categorical.
-        categorical_probs = softmax(input_[0]["categorical"])
-
-        expected = categorical_probs[:, 0:1] * input_[0]["parameters0"][0] + \
-            categorical_probs[:, 1:2] * input_[0]["parameters1"][0] + \
-            categorical_probs[:, 2:3] * input_[0]["parameters2"][0]
+        categorical_probs = softmax(input_["categorical"])
+        expected = categorical_probs[:, 0:1] * input_["parameters0"][0] + \
+            categorical_probs[:, 1:2] * input_["parameters1"][0] + \
+            categorical_probs[:, 2:3] * input_["parameters2"][0]
         outs = []
-        for _ in range(50):
-            out = test.test(("draw", input_))
+        for _ in range(100):
+            out = mixture.sample(input_, deterministic=False)
             outs.append(out)
-            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            out = mixture.sample_stochastic(input_)
             outs.append(out)
-
         check(np.mean(np.array(outs), axis=0), expected, decimals=1)
 
         # Test log-likelihood outputs (against scipy).
@@ -353,7 +345,8 @@ class TestDistributions(unittest.TestCase):
             np.sum(np.log(norm.pdf(values[0], params["parameters1"][0][0], params["parameters1"][1][0])), axis=-1) + \
             category_probs[2] * \
             np.sum(np.log(norm.pdf(values[0], params["parameters2"][0][0], params["parameters2"][1][0])), axis=-1)
-        test.test(("log_prob", [params, values]), expected_outputs=np.array([expected]), decimals=1)
+        out = mixture.log_prob(params, values)
+        check(out, np.array([expected]), decimals=1)
 
     def test_squashed_normal(self):
         param_space = Tuple(Float(shape=(5,)), Float(shape=(5,)), main_axes="B")

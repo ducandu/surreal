@@ -68,13 +68,9 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
         self.high = np.array(high)
 
         if self._shape == ():
-            if isinstance(low, np.ndarray):
-                assert low.shape == (), "ERROR: If shape == (), `low` must be scalar!"
-                low = low.item()
-            if isinstance(high, np.ndarray):
-                assert high.shape == (), "ERROR: If shape == (), `high` must be scalar!"
-                high = high.item()
-            self.global_bounds = (low, high)
+            assert self.low.shape == (), "ERROR: If shape == (), `low` must be scalar!"
+            assert self.high.shape == (), "ERROR: If shape == (), `high` must be scalar!"
+            self.global_bounds = (self.low, self.high)
         # nD Space (n > 0). Bounds can be single number or individual bounds.
         else:
             self.global_bounds = True
@@ -89,21 +85,13 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
                     self.high = self.high[next(iter(np.ndindex(self.high.shape)))]
                 else:
                     self.global_bounds = False
-            #if isinstance(high, (list, tuple, np.ndarray)):
-            #    if np.all(high == high[next(iter(np.ndindex(np.array(high).shape)))]):
-            #        high = high[next(iter(np.ndindex(np.array(high).shape)))]
-            #    else:
-            #        self.global_bounds = False
 
             # Only one low/high value. Use these as generic bounds for all values.
             if self.global_bounds is True:
-                assert np.isscalar(low) and np.isscalar(high)
-                self.global_bounds = (low, high)
+                self.global_bounds = (self.low, self.high)
                 # Low/high values are given individually per item (and are not all the same).
             else:
                 self.global_bounds = False
-
-        #assert self.low.shape == self.high.shape
 
     def force_batch(self, samples, horizontal=None):
         assert "T" not in self.main_axes, "ERROR: Cannot force a batch rank if Space `has_time_rank` is True!"

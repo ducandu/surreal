@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import os
 import tensorflow as tf
 import unittest
@@ -25,6 +26,8 @@ class TestLoadingAndSavingOfAlgos(unittest.TestCase):
     """
     Tests loading and saving (with and without weights) of the Algo class.
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_saving_then_loading_to_get_exact_same_algo(self):
         env = GridWorld("2x2", actors=1)
         state_space = env.actors[0].state_space.with_batch()

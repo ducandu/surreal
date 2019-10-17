@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import numpy as np
 import os
 import tensorflow as tf
@@ -30,6 +31,8 @@ class TestSACShortLearningTasks(unittest.TestCase):
     """
     Tests the SAC algo on shorter-than-1min learning problems.
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_sac_learning_on_grid_world_2x2(self):
         # Create an Env object.
         env = GridWorld("2x2", actors=1)

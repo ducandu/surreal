@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import numpy as np
 import os
 import unittest
@@ -28,6 +29,8 @@ class TestSACLongLearningTasks(unittest.TestCase):
     """
     Tests the SAC algo on up-to-1-day learning problems.
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_sac_learning_on_space_invaders(self):
         # Create an Env object.
         env = OpenAIGymEnv(

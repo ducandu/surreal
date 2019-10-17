@@ -14,6 +14,7 @@
 # ==============================================================================
 
 from collections import namedtuple
+import logging
 import numpy as np
 import os
 import tensorflow as tf
@@ -29,6 +30,8 @@ class TestDDDQNFunctionality(unittest.TestCase):
     """
     Tests the DDDQN algo functionality (loss functions, execution logic, etc.).
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_dddqn_loss_function(self):
         """
         Tests the dueling/double q-loss function assuming an n-step of 1.

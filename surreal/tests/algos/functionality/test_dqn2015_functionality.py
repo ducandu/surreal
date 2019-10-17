@@ -15,6 +15,7 @@
 
 from collections import namedtuple
 import copy
+import logging
 import numpy as np
 import os
 import tensorflow as tf
@@ -36,6 +37,8 @@ class TestDQN2015Functionality(unittest.TestCase):
     """
     Tests the DQN2015 algo functionality (loss functions, execution logic, etc.).
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_dqn2015_loss_function(self):
         # Batch of size=2.
         input_ = {

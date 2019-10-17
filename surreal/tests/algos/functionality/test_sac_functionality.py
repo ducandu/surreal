@@ -14,10 +14,9 @@
 # ==============================================================================
 
 from collections import namedtuple
-import copy
+import logging
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as K
 import unittest
 
 import surreal.debug as debug
@@ -35,6 +34,8 @@ class TestSACFunctionality(unittest.TestCase):
     """
     Tests the SAC algo functionality (loss functions, execution logic, etc.).
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_sac_loss_function(self):
         # Batch of size=2.
         input_ = {

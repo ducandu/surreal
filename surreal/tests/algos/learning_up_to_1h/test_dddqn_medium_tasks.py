@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import numpy as np
 import os
 import unittest
@@ -27,6 +28,8 @@ class TestDDDQNMediumLearningTasks(unittest.TestCase):
     """
     Tests the DDDQN algo on up-to-1-hour learning problems.
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_dddqn_learning_on_mountain_car_4_actors(self):
         # Note: MountainCar is tricky as per its reward function: Hence, we need a quite large episode
         # cutoff to solve it with ease.

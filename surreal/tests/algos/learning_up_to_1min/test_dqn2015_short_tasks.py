@@ -13,9 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-import tensorflow as tf
+import logging
 import numpy as np
 import os
+import tensorflow as tf
 import unittest
 
 from surreal.algos.dqn2015 import DQN2015, DQN2015Config
@@ -29,6 +30,8 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
     """
     Tests the DQN2015 algo on shorter-than-1min learning problems.
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_dqn2015_learning_on_grid_world(self):
         # Create an Env object.
         env = GridWorld("2x2")

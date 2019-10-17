@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import numpy as np
 import os
 import unittest
@@ -29,6 +30,8 @@ class TestDDDQNLongLearningTasks(unittest.TestCase):
     """
     Tests the DDDQN algo on up-to-1-day learning problems.
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_dddqn_learning_on_car_racing(self):
         # Action-map: Discrete to Continuous, 9 actions.
         # 0=noop

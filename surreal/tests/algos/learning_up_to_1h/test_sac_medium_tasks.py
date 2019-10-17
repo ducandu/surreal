@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import numpy as np
 import os
 import unittest
@@ -26,6 +27,7 @@ class TestSACMediumLearningTasks(unittest.TestCase):
     """
     Tests the SAC algo on up-to-1-hour learning problems.
     """
+    logging.getLogger().setLevel(logging.INFO)
 
     def test_sac_learning_on_pendulum(self):
         # Create an Env object.
@@ -83,16 +85,16 @@ class TestSACMediumLearningTasks(unittest.TestCase):
 
         env.terminate()
 
-    def test_sac_learning_on_lunar_lander_continuous(self):
+    def test_sac_learning_on_lunar_lander(self):
         # Create an Env object.
-        env = OpenAIGymEnv("LunarLanderContinuous-v2", actors=4)
+        env = OpenAIGymEnv("LunarLander-v2", actors=4)
 
         # Create a Config.
         config = SACConfig.make(
-            "{}/../configs/sac_lunar_lander_continuous.json".format(os.path.dirname(__file__)),
+            "{}/../configs/sac_lunar_lander.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space,
-            summaries=["Ls_critic[0]", "L_actor", "L_alpha", "alpha"]
+            summaries=["Ls_critic[0]", "Ls_critic[1]", "L_actor", "L_alpha", "alpha"]
         )
 
         # Create an Algo object.

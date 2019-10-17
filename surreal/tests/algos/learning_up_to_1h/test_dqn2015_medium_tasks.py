@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import numpy as np
 import os
 import unittest
@@ -27,6 +28,8 @@ class TestDQN2015MediumLearningTasks(unittest.TestCase):
     """
     Tests the DQN2015 algo on up-to-1-hour learning problems.
     """
+    logging.getLogger().setLevel(logging.INFO)
+
     def test_dqn2015_learning_on_lunar_lander_with_8_actors(self):
         # Create an Env object.
         env = OpenAIGymEnv("LunarLander-v2", actors=8)

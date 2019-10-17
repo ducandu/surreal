@@ -20,6 +20,7 @@ import unittest
 
 from surreal.components.optimizers.adam import Adam
 from surreal.components.optimizers.sgd import SGD
+from surreal.tests.test_util import check
 
 
 class TestOptimizers(unittest.TestCase):
@@ -41,7 +42,7 @@ class TestOptimizers(unittest.TestCase):
         with tf.GradientTape() as t:
             loss = self.L(var)
 
-        self.assertTrue(t.gradient(loss, var).numpy() == expected_grad)
+        check(t.gradient(loss, var), expected_grad)
 
     def test_apply_gradients(self):
         lr = random.random()
@@ -63,7 +64,7 @@ class TestOptimizers(unittest.TestCase):
         # Check against variable now. Should change by -learning_rate * grad.
         var_value_after = var.numpy()
         expected_new_value = var_value_orig - (lr * expected_grad)
-        self.assertTrue(var_value_after, expected_new_value)
+        check(var_value_after, expected_new_value)
 
     def test_minimize(self):
         # Test case not working w/o graph mode.
@@ -87,4 +88,4 @@ class TestOptimizers(unittest.TestCase):
         # Check against variable now. Should change by -learning_rate * grad.
         var_value_after = var.numpy()
         expected_new_value = var_value_orig - (lr * expected_grad)
-        self.assertTrue(var_value_after, expected_new_value)
+        check(var_value_after, expected_new_value)

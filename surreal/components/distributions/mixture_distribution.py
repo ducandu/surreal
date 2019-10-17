@@ -58,7 +58,7 @@ class MixtureDistribution(Distribution):
         for i, s in enumerate(self.sub_distributions):
             sub_space = parameters.get("parameters{}".format(i))
             if sub_space is None:
-                raise SurrealError("`parameters` for Mixed needs key: 'parameters{}'!".format(i))
+                raise SurrealError("`parameters` for MixtureDistribution needs key: 'parameters{}'!".format(i))
 
         components = []
         for i, s in enumerate(self.sub_distributions):

@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import numpy as np
 import unittest
 
 from surreal.envs.grid_world import GridWorld
@@ -32,46 +33,37 @@ class TestGridWorld(unittest.TestCase):
 
         # Simple test runs with fixed actions.
         # X=player's position
-        s = env._reset(0)  # ["XH", " G"]  X=player's position
-        check(s, 0)
-        s = env._reset(1)  # ["XH", " G"]  X=player's position
-        check(s, 0)
+        env.reset_all()  # ["XH", " G"]  X=player's position
 
-        env.act([2, 1])  # down: [" H", "XG"], # right: [" X", " G"]
+        env.act(np.array([2, 1]))  # down: [" H", "XG"], # right: [" X", " G"]
         check(env.state, [1, 0])
         check(env.reward, [-0.1, -5.0])
         check(env.terminal, [False, True])
-        env.act([1, 2])  # right: [" H", " X"], # down: [" H", "XG"]
+        env.act(np.array([1, 2]))  # right: [" H", " X"], # down: [" H", "XG"]
         check(env.state, [0, 1])  # 0=state got already reset (flow envs).
         check(env.reward, [1.0, -0.1])
         check(env.terminal, [True, False])
 
-        s = env._reset(0)
-        check(s, 0)
-        s = env._reset(1)
-        check(s, 0)
-        env.act([1, 1])  # both Actors move right: [" X", " G"] -> in the hole
-        check(s, [0, 0])
+        env.reset_all()
+        env.act(np.array([1, 1]))  # both Actors move right: [" X", " G"] -> in the hole
+        check(env.state, [0, 0])
         check(env.reward, [-5.0, -5.0])
         check(env.terminal, [True, True])
 
         # Run against a wall.
-        s = env._reset(0)  # ["XH", " G"]  X=player's position
-        check(s, 0)
-
-        env.act([3, 0])  # left: ["XH", " G"], up: ["XH", " G"]
+        env.act(np.array([3, 0]))  # left: ["XH", " G"], up: ["XH", " G"]
         check(env.state, [0, 0])
         check(env.reward, [-0.1, -0.1])
         check(env.terminal, [False, False])
-        env.act([2, 0])  # down: [" H", "XG"], up: ["XH", " G"]
+        env.act(np.array([2, 0]))  # down: [" H", "XG"], up: ["XH", " G"]
         check(env.state, [1, 0])
         check(env.reward, [-0.1, -0.1])
         check(env.terminal, [False, False])
-        env.act([0, 2])  # up: ["XH", " G"], down: [" H", "XG"]
+        env.act(np.array([0, 2]))  # up: ["XH", " G"], down: [" H", "XG"]
         check(env.state, [0, 1])
         check(env.reward, [-0.1, -0.1])
         check(env.terminal, [False, False])
-        env.act([1, 1])  # right: [" X", " G"], right: [" H", " X"]
+        env.act(np.array([1, 1]) ) # right: [" X", " G"], right: [" H", " X"]
         check(env.state, [0, 0])
         check(env.reward, [-5.0, 1.0])
         check(env.terminal, [True, True])

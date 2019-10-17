@@ -17,6 +17,7 @@
 import tensorflow as tf
 
 from surreal.components.distributions.distribution import Distribution
+from surreal.utils.nest import flatten_alongside
 
 
 class JointCumulativeDistribution(Distribution):
@@ -28,19 +29,23 @@ class JointCumulativeDistribution(Distribution):
     - log_prob returns the sum of all single log prob terms (joint log prob).
     - entropy returns the sum of all single entropy terms (joint entropy).
     """
-    def __init__(self, distribution_specs):
+    def __init__(self, distributions, num_main_axes=1):
         """
         Args:
-            distribution_specs (any): Nested structure containing the specifications of the single
+            distributions (any): Arbitrarily nested structure containing the specifications of the single
                 sub-distributions.
-        """
-        super(JointCumulativeDistribution, self).__init__()
 
+            num_main_axes (Optional[int]): An optional hint as to how many main_axes to keep, when reducing
+                probs/log-probs over the individual distributions.
+        """
+        super().__init__()
+
+        self.distributions = distributions
         # Create the flattened sub-distributions and add them.
         self.flattened_sub_distributions = tf.nest.flatten(tf.nest.map_structure(
-            lambda spec: Distribution.make(spec, scope="sub-distribution")
+            lambda spec: Distribution.make(spec, scope="sub-distribution"), distributions
         ))
-        #self.add_components(*list(self.flattened_sub_distributions.values()))
+        self.num_main_axes = num_main_axes
 
     def log_prob(self, parameters, values):
         """
@@ -53,9 +58,9 @@ class JointCumulativeDistribution(Distribution):
 
     def parameterize_distribution(self, parameters):
         return tf.nest.pack_sequence_as(
-            parameters,
+            self.distributions,
             [self.flattened_sub_distributions[i].parameterize_distribution(params)
-             for i, params in enumerate(tf.nest.flatten(parameters))]
+             for i, params in enumerate(flatten_alongside(parameters, self.distributions))]
         )
 
     def _sample_deterministic(self, distribution):
@@ -65,10 +70,10 @@ class JointCumulativeDistribution(Distribution):
              for i, distr in enumerate(tf.nest.flatten(distribution))]
         )
 
-    def _sample_stochastic(self, distribution):
+    def _sample_stochastic(self, distribution, seed=None):
         return tf.nest.pack_sequence_as(
             distribution,
-            [self.flattened_sub_distributions[i]._sample_stochastic(distr)
+            [self.flattened_sub_distributions[i]._sample_stochastic(distr, seed=seed)
              for i, distr in enumerate(tf.nest.flatten(distribution))]
         )
 
@@ -87,10 +92,8 @@ class JointCumulativeDistribution(Distribution):
         )
 
     def _reduce_over_sub_distributions(self, log_probs):
-        params_space = next(iter(flatten_op(self.api_method_inputs["parameters"]).values()))
-        num_ranks_to_keep = (1 if params_space.has_batch_rank else 0) + (1 if params_space.has_time_rank else 0)
+        num_ranks_to_keep = self.num_main_axes
         log_probs_list = []
-
         for log_prob in tf.nest.flatten(log_probs):
             # Reduce sum over all ranks to get the joint log llh.
             log_prob = tf.reduce_sum(log_prob, axis=list(range(len(log_prob.shape) - 1, num_ranks_to_keep - 1, -1)))
@@ -98,10 +101,8 @@ class JointCumulativeDistribution(Distribution):
         return tf.reduce_sum(tf.stack(log_probs_list, axis=0), axis=0)
 
     def _entropy(self, distribution):
-        params_space = next(iter(flatten_op(self.api_method_inputs["parameters"]).values()))
-        num_ranks_to_keep = (1 if params_space.has_batch_rank else 0) + (1 if params_space.has_time_rank else 0)
+        num_ranks_to_keep = self.num_main_axes
         all_entropies = []
-
         for distr in tf.next.flatten(distribution):
             entropy = distr.entropy()
             # Reduce sum over all ranks to get the joint log llh.

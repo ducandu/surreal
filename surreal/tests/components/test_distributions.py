@@ -19,7 +19,7 @@ from scipy.stats import norm, beta
 import unittest
 
 from surreal.components.distributions import *
-from surreal.spaces import Float, Int, Tuple
+from surreal.spaces import Dict, Float, Int, Tuple
 from surreal.tests import check
 from surreal.utils.numpy import softmax, sigmoid
 from surreal.utils.util import MIN_LOG_NN_OUTPUT, MAX_LOG_NN_OUTPUT
@@ -272,23 +272,23 @@ class TestDistributions(unittest.TestCase):
         num_events_per_multivariate = 2  # 2=bivariate
         param_space = Dict(
             {
-                "categorical": FloatBox(shape=(num_distributions,), low=-1.5, high=2.3),
+                "categorical": Float(shape=(num_distributions,), low=-1.5, high=2.3),
                 "parameters0": Tuple(
-                    FloatBox(shape=(num_events_per_multivariate,)),  # mean
-                    FloatBox(shape=(num_events_per_multivariate,)),  # diag
+                    Float(shape=(num_events_per_multivariate,)),  # mean
+                    Float(shape=(num_events_per_multivariate,)),  # diag
                 ),
                 "parameters1": Tuple(
-                    FloatBox(shape=(num_events_per_multivariate,)),  # mean
-                    FloatBox(shape=(num_events_per_multivariate,)),  # diag
+                    Float(shape=(num_events_per_multivariate,)),  # mean
+                    Float(shape=(num_events_per_multivariate,)),  # diag
                 ),
                 "parameters2": Tuple(
-                    FloatBox(shape=(num_events_per_multivariate,)),  # mean
-                    FloatBox(shape=(num_events_per_multivariate,)),  # diag
+                    Float(shape=(num_events_per_multivariate,)),  # mean
+                    Float(shape=(num_events_per_multivariate,)),  # diag
                 ),
             },
             main_axes="B"
         )
-        values_space = FloatBox(shape=(num_events_per_multivariate,), main_axes="B")
+        values_space = Float(shape=(num_events_per_multivariate,), main_axes="B")
         input_spaces = dict(
             parameters=param_space,
             values=values_space,
@@ -415,7 +415,7 @@ class TestDistributions(unittest.TestCase):
 
     def test_gumbel_softmax_distribution(self):
         # 5-categorical Gumble-Softmax.
-        param_space = Tuple(Float(shape=(5,)), main_axes="B")
+        param_space = Float(shape=(5,), main_axes="B")
         values_space = Float(shape=(5,), main_axes="B")
 
         gumble_softmax_distribution = GumbelSoftmax(temperature=1.0)
@@ -430,101 +430,95 @@ class TestDistributions(unittest.TestCase):
             out = gumble_softmax_distribution.sample_deterministic(input_)
             check(out, expected)
 
-        # TODO: finish this test case, using an actual Gumble-Softmax distribution from the
-        # paper: https://arxiv.org/pdf/1611.01144.pdf.
-        return
-
-        # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [param_space.sample(1), False]
-        expected = "???"
+        # Batch of size=1 and non-deterministic -> expect roughly the vector of probs.
+        input_ = param_space.sample(1)
+        expected = softmax(input_)
         outs = []
         for _ in range(100):
-            out = test.test(("draw", input_))
-            outs.append(np.argmax(out, axis=-1))
-            out = test.test(("sample_stochastic", tuple([input_[0]])))
-            outs.append(np.argmax(out, axis=-1))
+            out = gumble_softmax_distribution.sample(input_)
+            outs.append(out)
+            out = gumble_softmax_distribution.sample_stochastic(input_)
+            outs.append(out)
 
-        check(np.mean(outs), expected.mean(), decimals=1)
+        check(np.mean(outs, axis=0), expected, decimals=1)
+
+        return  # TODO: Figure out Gumbel Softmax log-prob calculation (our current implementation does not correspond with paper's formula).
+
+        def gumbel_log_density(y, probs, num_categories, temperature=1.0):
+            # https://arxiv.org/pdf/1611.01144.pdf.
+            density = np.math.factorial(num_categories - 1) * np.math.pow(temperature, num_categories - 1) * \
+                (np.sum(probs / np.power(y, temperature), axis=-1) ** -num_categories) * \
+                np.prod(probs / np.power(y, temperature + 1.0), axis=-1)
+            return np.log(density)
 
         # Test log-likelihood outputs.
-        means = np.array([[0.1, 0.2, 0.3, 0.4, 5.0]])
-        stds = np.array([[0.8, 0.2, 0.3, 2.0, 4.0]])
-        # Make sure values are within low and high.
-        values = np.array([[0.9, 0.2, 0.4, -0.1, -1.05]])
+        input_ = param_space.sample(3)
+        values = values_space.sample(3)
+        expected = gumbel_log_density(values, softmax(input_), num_categories=param_space.shape[0])
 
-        # TODO: understand and comment the following formula to get the log-prob.
-        # Unsquash values, then get log-llh from regular gaussian.
-        unsquashed_values = np.arctanh((values - low) / (high - low) * 2.0 - 1.0)
-        log_prob_unsquashed = np.log(norm.pdf(unsquashed_values, means, stds))
-        log_prob = log_prob_unsquashed - np.sum(np.log(1 - np.tanh(unsquashed_values) ** 2), axis=-1, keepdims=True)
-
-        test.test(("log_prob", [tuple([means, stds]), values]), expected_outputs=log_prob, decimals=4)
+        out = gumble_softmax_distribution.log_prob(input_, values)
+        check(out, expected)
 
     def test_joint_cumulative_distribution(self):
         param_space = Dict({
-            "a": FloatBox(shape=(4,)),  # 4-discrete
-            "b": Dict({"ba": Tuple([FloatBox(shape=(3,)), FloatBox(0.1, 1.0, shape=(3,))]),  # 3-variate normal
-                       "bb": Tuple([FloatBox(shape=(2,)), FloatBox(shape=(2,))]),  # beta -1 to 1
-                       "bc": Tuple([FloatBox(shape=(4,)), FloatBox(0.1, 1.0, shape=(4,))]),  # normal (dim=4)
+            "a": Float(shape=(4,)),  # 4-discrete
+            "b": Dict({"ba": Tuple([Float(shape=(3,)), Float(0.1, 1.0, shape=(3,))]),  # 3-variate normal
+                       "bb": Tuple([Float(shape=(2,)), Float(shape=(2,))]),  # beta -1 to 1
+                       "bc": Tuple([Float(shape=(4,)), Float(0.1, 1.0, shape=(4,))]),  # normal (dim=4)
                        })
         }, main_axes="B")
 
         values_space = Dict({
-            "a": IntBox(4),
+            "a": Int(4),
             "b": Dict({
-                "ba": FloatBox(shape=(3,)),
-                "bb": FloatBox(shape=(2,)),
-                "bc": FloatBox(shape=(4,))
+                "ba": Float(shape=(3,)),
+                "bb": Float(shape=(2,)),
+                "bc": Float(shape=(4,))
             })
         }, main_axes="B")
 
-        input_spaces = dict(
-            parameters=param_space,
-            values=values_space,
-            deterministic=bool
-        )
-
         low, high = -1.0, 1.0
-        joined_cumulative_distribution = JointCumulativeDistribution(distribution_specs={
-            "/a": Categorical(), "/b/ba": MultivariateNormal(), "/b/bb": Beta(low=low, high=high), "/b/bc": Normal()
-        }, switched_off_apis={"kl_divergence"})
-        test = ComponentTest(component=joined_cumulative_distribution, input_spaces=input_spaces)
+        joined_cumulative_distribution = JointCumulativeDistribution(distributions={
+            "a": Categorical(), "b": {"ba": MultivariateNormal(), "bb": Beta(low=low, high=high), "bc": Normal()}
+        })
 
         # Batch of size=2 and deterministic (True).
-        input_ = [param_space.sample(2), True]
-        input_[0]["a"] = softmax(input_[0]["a"])
+        input_ = param_space.sample(2)
+        input_["a"] = softmax(input_["a"])
         expected_mean = {
-            "a": np.argmax(input_[0]["a"], axis=-1),
+            "a": np.argmax(input_["a"], axis=-1),
             "b": {
-                "ba": input_[0]["b"]["ba"][0],  # [0]=Mean
+                "ba": input_["b"]["ba"][0],  # [0]=Mean
                 # Mean for a Beta distribution: 1 / [1 + (beta/alpha)] * range + low
-                "bb": (1.0 / (1.0 + input_[0]["b"]["bb"][1] / input_[0]["b"]["bb"][0])) * (high - low) + low,
-                "bc": input_[0]["b"]["bc"][0],
+                "bb": (1.0 / (1.0 + input_["b"]["bb"][1] / input_["b"]["bb"][0])) * (high - low) + low,
+                "bc": input_["b"]["bc"][0],
             }
         }
         # Sample n times, expect always mean value (deterministic draw).
-        for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected_mean)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected_mean)
+        for _ in range(100):
+            out = joined_cumulative_distribution.sample(input_, deterministic=True)
+            check(out, expected_mean)
+            out = joined_cumulative_distribution.sample_deterministic(input_)
+            check(out, expected_mean)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [param_space.sample(1), False]
-        input_[0]["a"] = softmax(input_[0]["a"])
+        input_ = param_space.sample(1)
+        input_["a"] = softmax(input_["a"])
         expected_mean = {
-            "a": np.sum(input_[0]["a"] * np.array([0, 1, 2, 3])),
+            "a": np.sum(input_["a"] * np.array([0, 1, 2, 3])),
             "b": {
-                "ba": input_[0]["b"]["ba"][0],  # [0]=Mean
+                "ba": input_["b"]["ba"][0],  # [0]=Mean
                 # Mean for a Beta distribution: 1 / [1 + (beta/alpha)] * range + low
-                "bb": (1.0 / (1.0 + input_[0]["b"]["bb"][1] / input_[0]["b"]["bb"][0])) * (high - low) + low,
-                "bc": input_[0]["b"]["bc"][0],
+                "bb": (1.0 / (1.0 + input_["b"]["bb"][1] / input_["b"]["bb"][0])) * (high - low) + low,
+                "bc": input_["b"]["bc"][0],
             }
         }
 
         outs = []
         for _ in range(100):
-            out = test.test(("draw", input_))
+            out = joined_cumulative_distribution.sample(input_)
             outs.append(out)
-            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            out = joined_cumulative_distribution.sample_stochastic(input_)
             outs.append(out)
 
         check(np.mean(np.stack([o["a"][0] for o in outs], axis=0), axis=0), expected_mean["a"], atol=0.2)
@@ -548,4 +542,5 @@ class TestDistributions(unittest.TestCase):
             np.sum(log_prob_beta) + \
             np.sum(np.log(norm.pdf(values["b"]["bc"][0], params["b"]["bc"][0], params["b"]["bc"][1])))
 
-        test.test(("log_prob", [params, values]), expected_outputs=expected_log_llh, decimals=1)
+        out = joined_cumulative_distribution.log_prob(params, values)
+        check(out, expected_log_llh, decimals=0)

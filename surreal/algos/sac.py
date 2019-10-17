@@ -97,7 +97,7 @@ class SAC(RLAlgo):
                 weights = self.pi.get_weights(as_ref=True)
                 grads_and_vars = list(zip(tape_actor.gradient(self.L_actor, weights), weights))
                 self.optimizers["pi"].apply_gradients(grads_and_vars, time_percentage)
-                if self.L_alpha is not None:
+                if self.config.optimize_alpha is True:
                     self.optimizers["alpha"].apply_gradients(
                         [(tape_alpha.gradient(self.L_alpha, self.alpha), self.alpha)], time_percentage
                     )
@@ -186,7 +186,7 @@ class SACLoss(LossFunction):
             q_values_sampled = tf.reduce_min(tuple([q_net(dict(s=s, a=a_sampled_soft)) for q_net in q_nets]), axis=0)
             loss_actor = tf.reduce_mean(alpha * log_likelihood_a_sampled - q_values_sampled)
 
-        loss_alpha = None
+        loss_alpha = 0.0
         tape_alpha = None
         if config.optimize_alpha is True:
             with tf.GradientTape(watch_accessed_variables=False) as tape_alpha:

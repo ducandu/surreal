@@ -20,7 +20,7 @@ import numpy as np
 import tensorflow as tf
 
 from surreal.spaces.space import Space
-from surreal.utils.util import convert_dtype, LARGE_INTEGER
+from surreal.utils.util import convert_dtype, LARGE_INTEGER, get_shape
 
 
 class PrimitiveSpace(Space, metaclass=ABCMeta):
@@ -64,6 +64,9 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
         # the single values from self.low and self.high), or a tuple of the globally valid low/high values that apply
         # to all values in all dimensions.
         # 0D Space.
+        self.low = np.array(low)
+        self.high = np.array(high)
+
         if self._shape == ():
             if isinstance(low, np.ndarray):
                 assert low.shape == (), "ERROR: If shape == (), `low` must be scalar!"
@@ -76,16 +79,21 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
         else:
             self.global_bounds = True
             # Check, whether they are all the same anyway, in which case, we do have global bounds.
-            if isinstance(low, (list, tuple, np.ndarray)):
-                if np.all(low == low[next(iter(np.ndindex(low.shape)))]):
-                    low = low[next(iter(np.ndindex(low.shape)))]
+            if self.low.shape != ():
+                if np.all(self.low == self.low[next(iter(np.ndindex(self.low.shape)))]):
+                    self.low = self.low[next(iter(np.ndindex(self.low.shape)))]
                 else:
                     self.global_bounds = False
-            if isinstance(high, (list, tuple, np.ndarray)):
-                if np.all(high == high[next(iter(np.ndindex(high.shape)))]):
-                    high = high[next(iter(np.ndindex(high.shape)))]
+            if self.high.shape != ():
+                if np.all(self.high == self.high[next(iter(np.ndindex(self.high.shape)))]):
+                    self.high = self.high[next(iter(np.ndindex(self.high.shape)))]
                 else:
                     self.global_bounds = False
+            #if isinstance(high, (list, tuple, np.ndarray)):
+            #    if np.all(high == high[next(iter(np.ndindex(np.array(high).shape)))]):
+            #        high = high[next(iter(np.ndindex(np.array(high).shape)))]
+            #    else:
+            #        self.global_bounds = False
 
             # Only one low/high value. Use these as generic bounds for all values.
             if self.global_bounds is True:
@@ -95,8 +103,6 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
             else:
                 self.global_bounds = False
 
-        self.low = np.array(low)
-        self.high = np.array(high)
         #assert self.low.shape == self.high.shape
 
     def force_batch(self, samples, horizontal=None):

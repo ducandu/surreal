@@ -35,13 +35,13 @@ class TestDDDQNFunctionality(unittest.TestCase):
         """
         # Batch of size=2.
         input_ = {
-            "x": np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+            "s": np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
             "a": np.array([2, 1]),
             "r": np.array([10.3, -4.25]),
             "t": np.array([False, True]),
             # make s' distinguishable from s via its values for the fake q-net to notice.
-            "x_": np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
-            "num_steps": np.array([1, 1])
+            "s_": np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
+            "n": np.array([1, 1])
         }
 
         # Fake q-nets. Just have to be callables.

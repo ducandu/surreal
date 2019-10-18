@@ -41,7 +41,7 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_replay_buffer.py';
 
   # Test the Envs.
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/environments';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/envs';
 
 
 notifications:

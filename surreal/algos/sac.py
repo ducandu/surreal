@@ -194,7 +194,7 @@ class SACLoss(LossFunction):
                 # In [1], α is used directly, however the implementation uses log(α).
                 # See the discussion in https://github.com/rail-berkeley/softlearning/issues/37.
                 loss_alpha = -tf.math.log(alpha) * (tf.reduce_mean(log_likelihood_a_sampled) + config.entropy_target)
-                #loss_alpha = -tf.reduce_mean(tf.math.log(alpha) * (log_likelihood_a_sampled * config.entropy_target))  # TODO: check with crazy "* target" instead of "+ target"
+                #loss_alpha = -tf.math.log(alpha) * (tf.reduce_mean(log_likelihood_a_sampled) * config.entropy_target)  # TODO: check with crazy "* target" instead of "+ target"
 
         return losses_critic, abs_td_errors, tapes_critic, loss_actor, tape_actor, loss_alpha, tape_alpha
 

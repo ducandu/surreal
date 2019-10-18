@@ -19,6 +19,7 @@ from collections import defaultdict
 import cv2
 import logging
 import numpy as np
+import re
 import tensorflow as tf
 import threading
 import time
@@ -186,7 +187,7 @@ class Env(Makeable, metaclass=ABCMeta):
 
                             # Send `episode_ends` event.
                             algo.event_episode_ends(self, self.time_steps_algos[algo_name], slot)
-                            self.summarize(algo, "episode_ends")
+                            self.summarize_episode(algo)
 
                             # Log stats sometimes.
                             if slot == 0:
@@ -224,7 +225,7 @@ class Env(Makeable, metaclass=ABCMeta):
                 # TODO: Need to make sure that we do not expect `self.act` to be called by the algo within this tick.
                 algo.event_tick(self, self.time_steps_algos[algo_name], slots, self.reward[slots], self.terminal[slots],
                                 self.state[slots])
-                self.summarize(algo)
+                self.summarize_tick(algo)
 
                 # Accumulate episode rewards.
                 self.episodes_returns[slots] += self.reward[slots]
@@ -330,34 +331,26 @@ class Env(Makeable, metaclass=ABCMeta):
         for actor in self.actors:
             actor.set_algo(rl_algo)
 
-    def summarize(self, algo, event=None):  # TODO: distinguish between different events?
+    def summarize_tick(self, algo):
         """
         Writes summary information (iff debug.UseTfSummaries is true) to the Algo's `summary_writer` object.
         Summary information and setup can be passed into the Algo via `config.summaries`, which is a list of items,
-        that will simply be executed on the Algo context (prepending "self"):
+        that will simply be executed on the Algo context (prepending "algo."):
         E.g.:
         "Q[0](np.array([[1.0, 0.0]]))": Will summarize the result of calling `self.Q[0](...)` on the Algo object.
         "L_critic": Will summarize the value of `self.L_critic` on the Algo object.
 
         Args:
             algo (Algo): The Algo to summarize.
-            event (str): One of "tick", "episode_starts", "episode_ends".
         """
         # Summaries not setup.
         if algo.summary_writer is None:
             return
 
-        # Episode-level.
-        if event == "episode_ends":
-            if "__RETURN__" in algo.config.summaries:
-                with algo.summary_writer.as_default():
-                    tf.summary.scalar("Episode Returns", self.historic_episodes_returns[-1], step=self.num_episodes)
-            return
-
         with algo.summary_writer.as_default():
             for summary in algo.config.summaries:
                 # TODO: distinguish between episode_ends summaries and tick summaries.
-                if summary == "__RETURN__":
+                if re.match(r'^episode\..+$', summary):
                     continue
 
                 name = summary
@@ -366,12 +359,6 @@ class Env(Makeable, metaclass=ABCMeta):
                 if isinstance(summary, (list, tuple)) and len(summary) == 2:
                     name = summary[0]
                     code_ = summary[1]
-
-                #obj = "algo"
-                ## Some special values trigger the Env's properties to be summarized.
-                #if re.search(r'^env\.', code_):
-                #    code_ = re.sub(r'^env\.', "", code_)
-                #    obj = "self"
 
                 l_dict = {"algo": algo}
                 # Execute the code.
@@ -395,6 +382,31 @@ class Env(Makeable, metaclass=ABCMeta):
                 # Assume scalar.
                 else:
                     tf.summary.scalar(name, result, step=self.tick)
+
+    def summarize_episode(self, algo):
+        """
+        See `summarize`.
+        This method only considers entries in `algo.summaries` that start with "episode.[some prop]".
+        Currently only supports props: `episode.return` and `episode.time_steps`.
+
+        Args:
+            algo (Algo): The Algo to summarize.
+            #num_episodes (int): The number of episodes that have been finished.
+            #episode_return (float): The overall return (undiscounted) of the finished episode.
+            #episode_time_steps (int): The length of the finished episode in time-steps.
+        """
+        # Summaries not setup.
+        if algo.summary_writer is None:
+            return
+
+        with algo.summary_writer.as_default():
+            for summary in algo.config.summaries:
+                mo = re.match(r'^episode\.(.+)', summary)
+                if mo is None:
+                    continue
+                name = mo.group(1)
+                value = self.historic_episodes_returns[-1] if name == "return" else self.historic_episodes_lengths[-1]
+                tf.summary.scalar(name, value, step=self.num_episodes)
 
     @staticmethod
     def _debug_store(path, state):

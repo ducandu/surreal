@@ -4,11 +4,11 @@
   "n_step": 3,
 
   "use_prioritized_replay": true,
-  "memory_capacity": 1000,
+  "memory_capacity": 10000,
   "memory_batch_size": 256,
 
-  "initial_alpha": 2.0,
-  "optimize_alpha": false,
+  "initial_alpha": 20.0,
+  "optimize_alpha": true,
   "gumbel_softmax_temperature": 1.0,
 
   "num_q_networks": 2,
@@ -32,7 +32,12 @@
 
   "default_optimizer": {
     "type": "adam",
-    "learning_rate": [0.0005, 0.00001],
+    "learning_rate": 0.0003,
+    "clip_norm": 40
+  },
+  "q_optimizer": {
+    "type": "adam",
+    "learning_rate": 0.0008,
     "clip_norm": 40
   },
 

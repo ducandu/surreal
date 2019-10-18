@@ -34,7 +34,7 @@ class Env(Makeable, metaclass=ABCMeta):
     """
     An Env class used to run experiment-based RL.
     """
-    def __init__(self, actors=None, render=False, action_map=None):
+    def __init__(self, actors=None, render=False, action_map=None, reward_clipping=None):
         """
         Args:
             actors (Union[int,List[Actor]]): The number of Actors to create and add to this env or a list of
@@ -46,6 +46,12 @@ class Env(Makeable, metaclass=ABCMeta):
             action_map (Optional[callable): An optional callable taking `actions` as inputs to enable e.g. discrete
                 learning in continuous envs or vice-versa. The callable must output the mapped actions, ready to be
                 applied in the underlying env.
+
+            reward_clipping (Optional[float,Tuple[float,float]]: Optional reward clipping setting given either by
+                a single float (rewards will be clipped from -reward_clipping to + reward_clipping), or as a tuple
+                indicating min and max values.
+                Note that the clipped values are only visible to the Algos used. Episode returns still be reported with
+                the original (unclipped) rewards.
         """
         super().__init__()
 
@@ -54,6 +60,8 @@ class Env(Makeable, metaclass=ABCMeta):
 
         # The action map (if any).
         self.action_map = action_map
+        # Should we clip rewards?
+        self.reward_clipping = reward_clipping
 
         # Global tick counter. Per env tick (for all actors).
         self.tick = 0

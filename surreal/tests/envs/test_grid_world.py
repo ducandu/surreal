@@ -67,3 +67,5 @@ class TestGridWorld(unittest.TestCase):
         check(env.state, [0, 0])
         check(env.reward, [-5.0, 1.0])
         check(env.terminal, [True, True])
+
+        env.terminate()

@@ -85,7 +85,7 @@ class TestSACShortLearningTasks(unittest.TestCase):
 
     def test_sac_learning_on_cart_pole_with_n_actors(self):
         # Create an Env object.
-        env = OpenAIGymEnv("CartPole-v0", actors=1)
+        env = OpenAIGymEnv("CartPole-v0", actors=2)
 
         # Create a Config.
         config = SACConfig.make(

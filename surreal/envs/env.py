@@ -179,14 +179,14 @@ class Env(Makeable, metaclass=ABCMeta):
                             elif self.debug_store_episode is not False and self.debug_store_episode[1] == slot:
                                 self.debug_store_episode = False
 
-                            # Send `episode_ends` event.
-                            algo.event_episode_ends(self, self.time_steps_algos[algo_name], slot)
-                            #self.summarize(algo)
-
                             # Log all historic returns.
                             self.historic_episodes_returns.append(self.episodes_returns[slot])
                             # Log all historic episode lengths.
                             self.historic_episodes_lengths.append(self.episodes_time_steps[slot])
+
+                            # Send `episode_ends` event.
+                            algo.event_episode_ends(self, self.time_steps_algos[algo_name], slot)
+                            self.summarize(algo, "episode_ends")
 
                             # Log stats sometimes.
                             if slot == 0:
@@ -341,20 +341,37 @@ class Env(Makeable, metaclass=ABCMeta):
 
         Args:
             algo (Algo): The Algo to summarize.
-            #event (str): One of "tick", "episode_starts", "episode_ends".
+            event (str): One of "tick", "episode_starts", "episode_ends".
         """
         # Summaries not setup.
         if algo.summary_writer is None:
             return
 
+        # Episode-level.
+        if event == "episode_ends":
+            if "__RETURN__" in algo.config.summaries:
+                with algo.summary_writer.as_default():
+                    tf.summary.scalar("Episode Returns", self.historic_episodes_returns[-1], step=self.num_episodes)
+            return
+
         with algo.summary_writer.as_default():
             for summary in algo.config.summaries:
+                # TODO: distinguish between episode_ends summaries and tick summaries.
+                if summary == "__RETURN__":
+                    continue
+
                 name = summary
                 code_ = summary
                 # Tuple/List of 2: Summary name + prop.
                 if isinstance(summary, (list, tuple)) and len(summary) == 2:
                     name = summary[0]
                     code_ = summary[1]
+
+                #obj = "algo"
+                ## Some special values trigger the Env's properties to be summarized.
+                #if re.search(r'^env\.', code_):
+                #    code_ = re.sub(r'^env\.', "", code_)
+                #    obj = "self"
 
                 l_dict = {"algo": algo}
                 # Execute the code.

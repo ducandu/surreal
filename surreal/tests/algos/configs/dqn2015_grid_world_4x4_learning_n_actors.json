@@ -4,7 +4,12 @@
   "memory_capacity": 256,
   "memory_batch_size": 64,
 
-  "epsilon": [1.0, 0.0],
+  "epsilon": {
+    "type": "linear-decay",
+    "from": 1.0,
+    "to": 0.1,
+    "end_time_percentage": 0.8
+  },
 
   "q_network": [
     {

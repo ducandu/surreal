@@ -1,13 +1,13 @@
 {
   "gamma": 0.99,
 
-  "n_step": 3,
+  "n_step": 4,
 
   "use_prioritized_replay": true,
-  "memory_capacity": 10000,
+  "memory_capacity": 100000,
   "memory_batch_size": 256,
 
-  "initial_alpha": 20.0,
+  "initial_alpha": 1.0,
   "optimize_alpha": true,
   "gumbel_softmax_temperature": 1.0,
 
@@ -15,17 +15,17 @@
   "q_network": [
     {
       "name": "dense",
-      "units": 256,
+      "units": 512,
       "activation": "relu"
     },
     {
       "name": "dense",
-      "units": 256,
+      "units": 512,
       "activation": "relu"
     },
     {
       "name": "dense",
-      "units": 256,
+      "units": 512,
       "activation": "relu"
     }
   ],

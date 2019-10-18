@@ -349,16 +349,15 @@ class Env(Makeable, metaclass=ABCMeta):
 
         with algo.summary_writer.as_default():
             for summary in algo.config.summaries:
-                # TODO: distinguish between episode_ends summaries and tick summaries.
-                if re.match(r'^episode\..+$', summary):
-                    continue
-
-                name = summary
-                code_ = summary
+                name = code_ = summary
                 # Tuple/List of 2: Summary name + prop.
                 if isinstance(summary, (list, tuple)) and len(summary) == 2:
                     name = summary[0]
                     code_ = summary[1]
+
+                # Ignore episode stats.
+                if re.match(r'^episode\..+$', name):
+                    continue
 
                 l_dict = {"algo": algo}
                 # Execute the code.
@@ -401,11 +400,14 @@ class Env(Makeable, metaclass=ABCMeta):
 
         with algo.summary_writer.as_default():
             for summary in algo.config.summaries:
-                mo = re.match(r'^episode\.(.+)', summary)
-                if mo is None:
+                name = code_ = summary
+                # Tuple/List of 2: Summary name + prop.
+                if isinstance(summary, (list, tuple)) and len(summary) == 2:
+                    name = summary[0]
+                if not re.match(r'^episode\..+', name):
                     continue
-                name = mo.group(1)
-                value = self.historic_episodes_returns[-1] if name == "return" else self.historic_episodes_lengths[-1]
+                value = self.historic_episodes_returns[-1] if name == "episode.return" else \
+                    self.historic_episodes_lengths[-1]
                 tf.summary.scalar(name, value, step=self.num_episodes)
 
     @staticmethod

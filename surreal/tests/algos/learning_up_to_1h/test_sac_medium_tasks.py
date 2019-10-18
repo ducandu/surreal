@@ -85,7 +85,7 @@ class TestSACMediumLearningTasks(unittest.TestCase):
 
         env.terminate()
 
-    def test_sac_learning_on_lunar_lander(self):
+    def test_sac_learning_on_lunar_lander_with_n_actors(self):
         # Create an Env object.
         env = OpenAIGymEnv("LunarLander-v2", actors=4)
 
@@ -113,6 +113,6 @@ class TestSACMediumLearningTasks(unittest.TestCase):
         n = 5
         mean_last_n = np.mean(env.historic_episodes_returns[-n:])
         print("Avg return over last {} episodes: {}".format(n, mean_last_n))
-        self.assertTrue(mean_last_n >= 100.0)
+        self.assertTrue(mean_last_n >= 175.0)
 
         env.terminate()

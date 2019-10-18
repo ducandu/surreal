@@ -94,7 +94,8 @@ class TestSACMediumLearningTasks(unittest.TestCase):
             "{}/../configs/sac_lunar_lander.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space,
-            summaries=["Ls_critic[0]", "Ls_critic[1]", "L_actor", "L_alpha", "alpha"]
+            summaries=["__RETURN__", ("actions", "a_soft.value[0]"), "Ls_critic[0]", "Ls_critic[1]", "L_actor", "L_alpha",
+                       "alpha"]
         )
 
         # Create an Algo object.

@@ -23,11 +23,8 @@ import surreal.debug as debug
 # Override debug setting. Needed for some of the tests.
 debug.KeepLastMemoryBatch = True
 
-from surreal.algos.sac import SAC, SACConfig, SACLoss
-from surreal.components.preprocessors.preprocessor import Preprocessor
-from surreal.envs import GridWorld
+from surreal.algos.sac import SACLoss
 from surreal.tests.test_util import check
-from surreal.utils.numpy import dense, one_hot
 
 
 class TestSACFunctionality(unittest.TestCase):

@@ -60,12 +60,55 @@ class TestSACLongLearningTasks(unittest.TestCase):
         env.point_all_actors_to_algo(algo)
 
         # Run and wait for env to complete.
-        env.run(actor_time_steps=10000000, sync=True, render=debug.RenderEnvInLearningTests)
+        env.run(actor_time_steps=20000000, sync=True, render=debug.RenderEnvInLearningTests)
 
         # Check last n episode returns.
         n = 10
         mean_last_10 = np.mean(env.historic_episodes_returns[-n:])
         print("Avg return over last 10 episodes: {}".format(mean_last_10))
         self.assertTrue(mean_last_10 > 150.0)
+
+        env.terminate()
+
+    def test_sac_learning_on_breakout(self):
+        # Create an Env object.
+        env = OpenAIGymEnv(
+            "Breakout-v4", actors=128, fire_after_reset=True, episodic_life=True, max_num_noops_after_reset=6,
+            frame_skip=(2, 5)
+        )
+
+        preprocessor = Preprocessor(
+            ImageCrop(x=5, y=29, width=150, height=167),
+            GrayScale(keepdims=True),
+            ImageResize(width=84, height=84, interpolation="bilinear"),
+            lambda inputs_: ((inputs_ / 128) - 1.0).astype(np.float32),  # simple preprocessor: [0,255] to [-1.0,1.0]
+            Sequence(sequence_length=4, adddim=False)
+        )
+        # Create a DQN2015Config.
+        config = SACConfig.make(
+            "{}/../configs/sac_breakout_learning.json".format(os.path.dirname(__file__)),
+            preprocessor=preprocessor,
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space,
+            summaries=[
+                "Ls_critic[0]", "Ls_critic[1]", "L_actor", "L_alpha", "alpha", ("actions", "a_soft.value[0]"),
+                "log_pi", "entropy_error_term", "log_alpha",  # TEST
+                "episode.return", "episode.time_steps",
+            ]
+        )
+        # Create an Algo object.
+        algo = SAC(config=config, name="my-sac")
+
+        # Point actor(s) to the algo.
+        env.point_all_actors_to_algo(algo)
+
+        # Run and wait for env to complete.
+        env.run(actor_time_steps=20000000, sync=True, render=debug.RenderEnvInLearningTests)
+
+        # Check last n episode returns.
+        n = 10
+        mean_last_10 = np.mean(env.historic_episodes_returns[-n:])
+        print("Avg return over last 10 episodes: {}".format(mean_last_10))
+        self.assertTrue(mean_last_10 > 200.0)
 
         env.terminate()

@@ -1,0 +1,112 @@
+{
+  "gamma": 0.99,
+
+  "n_step": 3,
+
+  "use_prioritized_replay": true,
+  "memory_alpha": 0.75,
+  "memory_capacity": 101376,
+  "memory_batch_size": 512,
+
+  "initial_alpha": 5.0,
+  "optimize_alpha": true,
+  "entropy_target": [2.0, 0.4],
+  "gumbel_softmax_temperature": 1.0,
+
+  "policy_network": [
+    {
+      "name": "conv2d",
+      "filters": 16,
+      "kernel_size": 8,
+      "strides": 4,
+      "padding": "same",
+      "activation": "relu"
+    },
+    {
+      "name": "conv2d",
+      "filters": 32,
+      "kernel_size": 4,
+      "strides": 2,
+      "padding": "same",
+      "activation": "relu"
+    },
+    {
+      "name": "conv2d",
+      "filters": 256,
+      "kernel_size": 11,
+      "strides": 1,
+      "padding": "valid",
+      "activation": "relu"
+    },
+    {
+      "name": "flatten"
+    },
+    {
+      "name": "dense",
+      "units": 512,
+      "activation": "relu"
+    }
+  ],
+
+  "num_q_networks": 2,
+  "q_network": {
+    "pre_concat_networks": {
+      "s": [
+        {
+          "name": "conv2d",
+          "filters": 16,
+          "kernel_size": 8,
+          "strides": 4,
+          "padding": "same",
+          "activation": "relu"
+        },
+        {
+          "name": "conv2d",
+          "filters": 32,
+          "kernel_size": 4,
+          "strides": 2,
+          "padding": "same",
+          "activation": "relu"
+        },
+        {
+          "name": "conv2d",
+          "filters": 256,
+          "kernel_size": 11,
+          "strides": 1,
+          "padding": "valid",
+          "activation": "relu"
+        },
+        {
+          "name": "flatten"
+        }
+      ]
+    },
+
+    "network": [
+      {
+        "name": "dense",
+        "units": 512,
+        "activation": "relu"
+      }
+    ]
+  },
+
+  "default_optimizer": {
+    "type": "adam",
+    "learning_rate": 0.0003,
+    "clip_norm": 40
+  },
+
+  "q_optimizer": {
+    "type": "adam",
+    "learning_rate": 0.001,
+    "clip_norm": 40
+  },
+
+  "time_unit": "env_tick",
+  "update_after": "when-memory-ready",
+  "update_frequency": 1,
+  "num_steps_per_update": 2,
+  "sync_frequency": 1,
+  "sync_tau": 0.005
+}

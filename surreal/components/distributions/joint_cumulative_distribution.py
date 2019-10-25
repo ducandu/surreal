@@ -43,7 +43,7 @@ class JointCumulativeDistribution(Distribution):
         self.distributions = distributions
         # Create the flattened sub-distributions and add them.
         self.flattened_sub_distributions = tf.nest.flatten(tf.nest.map_structure(
-            lambda spec: Distribution.make(spec, scope="sub-distribution"), distributions
+            lambda spec: Distribution.make(spec), distributions
         ))
         self.num_main_axes = num_main_axes
 

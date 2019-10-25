@@ -34,6 +34,7 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_distribution_adapters.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_distributions.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_memories_generically.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_neg_log_likelihood_loss.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_networks.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_optimizers.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/components/test_preprocessors.py';

@@ -14,10 +14,11 @@
 # ==============================================================================
 
 from surreal.components.loss_functions.loss_function import LossFunction
+from surreal.components.loss_functions.neg_log_likelihood_loss import NegLogLikelihoodLoss
 
 LossFunction.__lookup_classes__ = dict(
-    lossfunction=LossFunction
+    lossfunction=LossFunction,
+    negloglikelihoodloss=NegLogLikelihoodLoss
 )
 
-__all__ = ["LossFunction"]
-
+__all__ = list(set(map(lambda x: x.__name__, LossFunction.__lookup_classes__.values())))

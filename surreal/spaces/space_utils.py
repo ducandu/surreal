@@ -460,9 +460,10 @@ def get_default_distribution_from_space(
             return dict(type=bounded_distribution_type, low=space.low, high=space.high)
     # Container Space.
     elif isinstance(space, ContainerSpace):
-        return dict(type="joint-cumulative", distribution_specs=dict(
-            {k: get_default_distribution_from_space(s) for k, s in space.flatten().items()}
-        ))
+        return dict(
+            type="joint-cumulative",
+            distributions=tf.nest.pack_sequence_as(space.structure, tf.nest.map_structure(lambda s: get_default_distribution_from_space(s), tf.nest.flatten(space)))
+        )
     else:
         raise SurrealError("No distribution defined for space {}!".format(space))
 

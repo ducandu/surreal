@@ -57,26 +57,7 @@ class ReplayBuffer(Memory):
             np.arange(0, self.size), size=int(num_records), replace=True if num_records > self.size else False
         )
         indices = (self.index - 1 - indices) % self.capacity
-        records = [np.array([var[i] for i in indices]) for var in self.memory]
-        records = tf.nest.pack_sequence_as(self.record_space.structure, records)
-
-        self.inject_next_values_if_necessary(indices, records)
-        ## Inject next-values into records if required.
-        #if self.next_record_setup:
-        #    last_batch_range = [i % self.capacity for i in range(self.index - self.batch_size, self.index)]
-        #    for field, (next_field, memory_bins) in self.next_record_setup.items():
-        #        next_values = []
-        #        for next_var, var in enumerate(memory_bins):
-        #            a = []
-        #            for i in indices:
-        #                # i is within last batch -> Take next-values from reserve area.
-        #                if i in last_batch_range:
-        #                    a.append(self.next_records[next_var][i % self.batch_size])
-        #                # i is not within last batch -> Take next-values from next records in mem.
-        #                else:
-        #                    a.append(self.memory[var][(i + self.batch_size) % self.capacity])
-        #            next_values.append(np.array(a))
-        #        records[next_field] = tf.nest.pack_sequence_as(self.record_space[field].structure, next_values)
+        records = self.get_records_at_indices(indices)
 
         if KeepLastMemoryBatch is True:
             self.last_records_pulled = records

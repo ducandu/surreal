@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import numpy as np
+
 from surreal.components.memories.replay_buffer import ReplayBuffer
 
 
@@ -33,7 +35,7 @@ class FIFOBuffer(ReplayBuffer):
         super().add_records(records, single=single)
 
         # When full, call the even handler, if given passing in ourselves as only argument.
-        if self.when_full is not None and self.size  == self.capacity:
+        if self.when_full is not None and self.size == self.capacity:
             self.when_full(self)
 
     def flush(self):
@@ -43,4 +45,13 @@ class FIFOBuffer(ReplayBuffer):
         Returns:
             any: All records of this buffer in the correct FIFO-order.
         """
-        pass  # TODO: implement
+        indices = np.arange(0, self.index)
+        if self.size == self.capacity:
+            indices = np.concatenate([np.arange(self.index, self.capacity), indices])
+
+        # Get all records.
+        data = self.get_records_at_indices(indices)
+        # Clear memory.
+        self.clear()
+        # Return records.
+        return data

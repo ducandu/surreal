@@ -99,6 +99,16 @@ class Memory(Makeable, metaclass=ABCMeta):
         # If debug.KeepLastMemoryBatch is set: Store last pulled batch in this property.
         self.last_records_pulled = None
 
+    def clear(self):
+        """
+        Clears this memory, such that it is empty and all indices, weights, data is reset and erased.
+        """
+        self.batch_size = None
+        self.next_records.clear()
+        self.size = 0
+        self.index = 0
+        self.last_records_pulled = None
+
     @abstractmethod
     def add_records(self, records):
         """
@@ -141,6 +151,21 @@ class Memory(Makeable, metaclass=ABCMeta):
                 List[int]: The list of indices of the retrieved records.
         """
         raise NotImplementedError
+
+    def get_records_at_indices(self, indices):
+        """
+        Returns the records at the given indices.
+
+        Args:
+            indices (np.ndarray): List or array of index values to pull.
+
+        Returns:
+            any: The retrieved records.
+        """
+        records = [np.array([var[i] for i in indices]) for var in self.memory]
+        records = tf.nest.pack_sequence_as(self.record_space.structure, records)
+        self.inject_next_values_if_necessary(indices, records)
+        return records
 
     def get_size(self):
         """

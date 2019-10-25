@@ -101,10 +101,7 @@ class PrioritizedReplayBuffer(Memory):
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
 
         indices = np.asarray(indices)
-        records = [np.array([var[i] for i in indices]) for var in self.memory]
-        records = tf.nest.pack_sequence_as(self.record_space.structure, records)
-
-        self.inject_next_values_if_necessary(indices, records)
+        records = self.get_records_at_indices(indices)
 
         if KeepLastMemoryBatch is True:
             self.last_records_pulled = records

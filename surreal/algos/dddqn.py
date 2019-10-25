@@ -56,6 +56,14 @@ class DDDQN(RLAlgo):
         self.epsilon = Decay.make(self.config.epsilon)  # for epsilon greedy learning
         self.Phi.reset()  # make sure, Preprocessor is clean
 
+    def update(self, samples, time_percentage):
+        weights = self.Q.get_weights(as_ref=True)
+        with tf.GradientTape(watch_accessed_variables=False) as tape:
+            tape.watch(weights)  # Only watch main Q-weights, not the target weights.
+            L, abs_td_errors = self.L(samples, self.Q, self.Qt, self.config)
+            self.optimizer.apply_gradients(list(zip(tape.gradient(L, weights), weights)), time_percentage)
+        return L, abs_td_errors
+
     def event_episode_starts(self, env, actor_time_steps, batch_position, s):
         # Reset Phi at beginning of each episode (only at given batch positions).
         self.Phi.reset(batch_position)
@@ -81,16 +89,12 @@ class DDDQN(RLAlgo):
         # Send the new actions back to the env.
         env.act(a_)
 
-        # Every nth tick event -> Update network, based on Loss.
+        # Every nth tick event -> Update network, based on Loss and update memory's priorities based on the TD-errors.
         if self.is_time_to("update", env.tick, actor_time_steps):
-            weights = self.Q.get_weights(as_ref=True)
-            with tf.GradientTape(watch_accessed_variables=False) as tape:
-                tape.watch(weights)  # Only watch main Q-weights, not the target weights.
-                records, indices = self.memory.get_records_with_indices(self.config.memory_batch_size)
-                L, abs_td_errors = self.L(records, self.Q, self.Qt, self.config)
-                self.optimizer.apply_gradients(list(zip(tape.gradient(L, weights), weights)), time_percentage)
-                # Update prioritized replay records with Add td_errors to prioritized replay as
-                self.memory.update_records(indices, abs_td_errors)
+            samples, indices = self.memory.get_records_with_indices(self.config.memory_batch_size)
+            _, abs_td_errors = self.update(samples, time_percentage)
+            # Update prioritized replay records.
+            self.memory.update_records(indices, abs_td_errors)
 
         # Every mth tick event -> Synchronize target Q-net.
         if self.is_time_to("sync", env.tick, actor_time_steps):

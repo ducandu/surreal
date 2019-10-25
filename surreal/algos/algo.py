@@ -13,9 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 import json
-import re
 import tensorflow as tf
 import yaml
 
@@ -44,6 +43,22 @@ class Algo(Makeable, metaclass=ABCMeta):
         self.summary_writer = None
         if UseTfSummaries is True and self.config.summaries is not None:
             self.summary_writer = tf.summary.create_file_writer(PATH_SUMMARIES)
+
+    @abstractmethod
+    def update(self, samples, time_percentage):
+        """
+        Performs an update of some form using the given batch (`samples`).
+
+        Args:
+            samples (any): The samples to use for the update.
+
+            time_percentage (float): The time-percentage value (starting from 0.0 e.g. at beginning of learning to
+                1.0 at the end of learning). If None, keep current `learning_rate`.
+
+        Returns:
+            any: Some data that may be important for the Algo for further processing (e.g. loss).
+        """
+        raise NotImplementedError
 
     @staticmethod
     def load(path, include_weights=True):

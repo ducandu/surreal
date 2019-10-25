@@ -45,6 +45,14 @@ class DQN2015(RLAlgo):
         self.epsilon = Decay.make(self.config.epsilon)  # for epsilon greedy learning
         self.Phi.reset()  # make sure, Preprocessor is clean
 
+    def update(self, samples, time_percentage):
+        weights = self.Q.get_weights(as_ref=True)
+        with tf.GradientTape(watch_accessed_variables=False) as tape:
+            tape.watch(weights)  # Only watch main Q-weights, not the target weights.
+            L = self.L(samples, self.Q, self.Qt, self.config)
+            self.optimizer.apply_gradients(list(zip(tape.gradient(L, weights), weights)), time_percentage)
+        return L
+
     def event_episode_starts(self, env, actor_time_steps, batch_position, s):
         # Reset Phi at beginning of each episode (only at given batch positions).
         self.Phi.reset(batch_position)
@@ -71,11 +79,7 @@ class DQN2015(RLAlgo):
 
         # Every nth tick event -> Update network, based on Loss.
         if self.is_time_to("update", env.tick, actor_time_steps):
-            weights = self.Q.get_weights(as_ref=True)
-            with tf.GradientTape(watch_accessed_variables=False) as tape:
-                tape.watch(weights)  # Only watch main Q-weights, not the target weights.
-                L = self.L(self.memory.get_records(self.config.memory_batch_size), self.Q, self.Qt, self.config)
-                self.optimizer.apply_gradients(list(zip(tape.gradient(L, weights), weights)), time_percentage)
+            self.update(self.memory.get_records(self.config.memory_batch_size), time_percentage)
 
         # Every mth tick event -> Synchronize target Q-net.
         if self.is_time_to("sync", env.tick, actor_time_steps):

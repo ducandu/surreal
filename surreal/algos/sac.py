@@ -18,7 +18,7 @@ import numpy as np
 import tensorflow as tf
 
 from surreal.algos.rl_algo import RLAlgo
-from surreal.components import Network, Memory, Optimizer, Preprocessor, LossFunction, NStep
+from surreal.components import Decay, Network, Memory, Optimizer, Preprocessor, LossFunction, NStep
 from surreal.config import AlgoConfig
 from surreal.spaces import Dict, Int, Space, ContainerSpace
 from surreal.utils.util import default_dict
@@ -49,13 +49,37 @@ class SAC(RLAlgo):
                                          {"n": int} if config.n_step > 1 else {}), main_axes="B")
         self.memory = Memory.make(record_space=record_space, **config.memory_spec)
         self.alpha = tf.Variable(config.initial_alpha, name="alpha", dtype=tf.float32)  # the temperature parameter α
+        self.entropy_target = Decay.make(config.entropy_target)
         self.n_step = NStep(config.gamma, n_step=config.n_step, n_step_only=True)
         self.L, self.Ls_critic, self.L_actor, self.L_alpha = SACLoss(), [0, 0], 0, 0  # SAC loss function and values.
+
+        # TEST
+        self.log_pi, self.entropy_error_term, self.log_alpha = 0, 0, 0
+        # END: TEST
+
         self.optimizers = dict(
             q=Optimizer.make(self.config.q_optimizer), pi=Optimizer.make(self.config.policy_optimizer),
             alpha=Optimizer.make(self.config.alpha_optimizer)
         )
         self.preprocessor.reset()  # make sure, Preprocessor is clean
+
+    def update(self, samples, time_percentage):
+        self.Ls_critic, abs_td_errors, tapes_critic, self.L_actor, tape_actor, self.L_alpha, tape_alpha, \
+        self.log_pi, self.entropy_error_term, self.log_alpha = \
+            self.L(samples, self.alpha, self.entropy_target(time_percentage), self.pi, self.Q, self.Qt, self.config)
+        for i in range(self.config.num_q_networks):
+            weights = self.Q[i].get_weights(as_ref=True)
+            self.optimizers["q"].apply_gradients(
+                list(zip(tapes_critic[i].gradient(self.Ls_critic[i], weights), weights)), time_percentage
+            )
+        weights = self.pi.get_weights(as_ref=True)
+        grads_and_vars = list(zip(tape_actor.gradient(self.L_actor, weights), weights))
+        self.optimizers["pi"].apply_gradients(grads_and_vars, time_percentage)
+        if self.config.optimize_alpha is True:
+            self.optimizers["alpha"].apply_gradients(
+                [(tape_alpha.gradient(self.L_alpha, self.alpha), self.alpha)], time_percentage
+            )
+        return abs_td_errors
 
     def event_episode_starts(self, env, time_steps, batch_position, s):
         # Reset Phi at beginning of each episode (only at given batch position).
@@ -83,24 +107,11 @@ class SAC(RLAlgo):
         # Every nth tick event -> Update all our networks, based on the losses (i iterations per update step).
         if self.is_time_to("update", env.tick, actor_time_steps):
             for _ in range(self.config.num_steps_per_update):
-                records, indices = self.memory.get_records_with_indices(self.config.memory_batch_size)
-                self.Ls_critic, abs_td_errors, tapes_critic, self.L_actor, tape_actor, self.L_alpha, tape_alpha = \
-                    self.L(records, self.alpha, self.pi, self.Q, self.Qt, self.config)
-                for i in range(self.config.num_q_networks):
-                    weights = self.Q[i].get_weights(as_ref=True)
-                    self.optimizers["q"].apply_gradients(
-                        list(zip(tapes_critic[i].gradient(self.Ls_critic[i], weights), weights)), time_percentage
-                    )
+                samples, indices = self.memory.get_records_with_indices(self.config.memory_batch_size)
+                abs_td_errors = self.update(samples, time_percentage)
                 # Update our memory's priority weights with the abs(td-error) values (if we use a PR).
                 if self.config.use_prioritized_replay is True:
                     self.memory.update_records(indices, abs_td_errors)
-                weights = self.pi.get_weights(as_ref=True)
-                grads_and_vars = list(zip(tape_actor.gradient(self.L_actor, weights), weights))
-                self.optimizers["pi"].apply_gradients(grads_and_vars, time_percentage)
-                if self.config.optimize_alpha is True:
-                    self.optimizers["alpha"].apply_gradients(
-                        [(tape_alpha.gradient(self.L_alpha, self.alpha), self.alpha)], time_percentage
-                    )
 
         # Every mth tick event -> Synchronize target Q-net(s) using soft (tau) syncing.
         if self.is_time_to("sync", env.tick, actor_time_steps, only_after=self.config.update_after):
@@ -141,13 +152,14 @@ class SACLoss(LossFunction):
         Qt = target Q-network (synchronized every m time steps using tau-syncing).
         γ = discount factor
     """
-    def call(self, samples, alpha, pi, q_nets, qt_nets, config):
+    def call(self, samples, alpha, entropy_target, pi, q_nets, qt_nets, config):
         """
         Args:
             samples (Dict[states,actions,rewards,next-states,terminals]): The batch to push through the loss function
                 to get an expectation value (mean over all batch items).
 
             alpha (tf.Variable): The alpha variable.
+            entropy_target (float): The current value for `Hbar` (entropy_target).
             pi (Network): The policy network (π).
             q_nets (List[Network]): The Q-network(s).
             qt_nets (List[Network]): The target Q-network(s).
@@ -193,10 +205,11 @@ class SACLoss(LossFunction):
                 tape_alpha.watch(alpha)
                 # In [1], α is used directly, however the implementation uses log(α).
                 # See the discussion in https://github.com/rail-berkeley/softlearning/issues/37.
-                loss_alpha = -tf.math.log(alpha) * (tf.reduce_mean(log_likelihood_a_sampled) + config.entropy_target)
-                #loss_alpha = -tf.math.log(alpha) * (tf.reduce_mean(log_likelihood_a_sampled) * config.entropy_target)  # TODO: check with crazy "* target" instead of "+ target"
+                log_pi = tf.reduce_mean(log_likelihood_a_sampled)
+                loss_alpha = -tf.math.log(alpha) * (log_pi + entropy_target)
+                #loss_alpha = -tf.math.log(alpha) * (tf.reduce_mean(log_likelihood_a_sampled) * entropy_target)  # TODO: check with crazy "* target" instead of "+ target"
 
-        return losses_critic, abs_td_errors, tapes_critic, loss_actor, tape_actor, loss_alpha, tape_alpha
+        return losses_critic, abs_td_errors, tapes_critic, loss_actor, tape_actor, loss_alpha, tape_alpha, log_pi, (log_pi + entropy_target), tf.math.log(alpha)
 
 
 class SACConfig(AlgoConfig):
@@ -215,7 +228,7 @@ class SACConfig(AlgoConfig):
             num_q_networks=2,
             memory_capacity=10000, memory_batch_size=256,
             use_prioritized_replay=False, memory_alpha=1.0, memory_beta=0.0,
-            initial_alpha=1.0, entropy_target=None,  # default: -dim(A)
+            initial_alpha=1.0, entropy_target=None,  # default: -dim(A), but this won't work for Atari.
             n_step=1,
             max_time_steps=None, update_after=0, update_frequency=1, num_steps_per_update=1,
             sync_frequency=1, sync_tau=0.005,
@@ -269,7 +282,10 @@ class SACConfig(AlgoConfig):
                 - when-memory-ready" for same as `memory_batch_size`.
 
             update_frequency (int): The frequency (in `time_unit`) with which to update our Q-network.
-            num_steps_per_update (int): The number of gradient descent iterations per update.
+
+            num_steps_per_update (int): The number of gradient descent iterations per update (each iteration uses
+                a different sample).
+
             sync_frequency (int): The frequency (in `time_unit`) with which to sync our target network.
             sync_tau (float): The target smoothing coefficient with which to synchronize the target Q-network.
             time_unit (str["time_step","env_tick"]): The time units we are using for update/sync decisions.

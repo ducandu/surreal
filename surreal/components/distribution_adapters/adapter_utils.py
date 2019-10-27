@@ -66,7 +66,7 @@ def get_distribution_spec_from_adapter(distribution_adapter):
         return dict(type="beta")
     elif distribution_adapter_type_str == "SquashedNormalDistributionAdapter":
         return dict(type="squashed-normal")
-    elif distribution_adapter_type_str == "NormalMixtureDistributionAdapter":
+    elif distribution_adapter_type_str == "MixtureDistributionAdapter":
         # TODO: MixtureDistribution is generic (any sub-distributions, but its AA is not (only supports mixture-Normal))
         return dict(type="mixture", _args=["multivariate-normal" for _ in range(distribution_adapter.num_mixtures)])
     elif distribution_adapter_type_str == "PlainOutputAdapter":

@@ -419,12 +419,15 @@ def try_space_inference_from_list(list_op):
 
 
 def get_default_distribution_from_space(
-        space, bounded_distribution_type="beta", discrete_distribution_type="categorical",
-        gumbel_softmax_temperature=1.0
+        space, *, num_mixture_experts=0, bounded_distribution_type="beta",
+        discrete_distribution_type="categorical", gumbel_softmax_temperature=1.0
 ):
     """
     Args:
         space (Space): The primitive Space for which to derive a default distribution spec.
+
+        num_mixture_experts (int): If > 0, use a mixture distribution over the determined "base"-distribution using n
+            experts. TODO: So far, this only works for continuous distributions.
 
         bounded_distribution_type (str): The lookup class string for a bounded Float distribution.
             Default: "beta".
@@ -446,18 +449,27 @@ def get_default_distribution_from_space(
             return dict(type="gumbel-softmax", temperature=gumbel_softmax_temperature)
         else:
             return dict(type=discrete_distribution_type)
+
     # Bool: Bernoulli.
     elif isinstance(space, Bool):
         return dict(type="bernoulli")
+
     # Continuous action space: Normal/Beta/etc. distribution.
     elif isinstance(space, Float):
         # Unbounded -> Normal distribution.
         if not is_bounded_space(space):
-            return dict(type="normal")
+            single = dict(type="normal")
         # Bounded -> according to the bounded_distribution parameter.
         else:
             assert bounded_distribution_type in ["beta", "squashed-normal"]
-            return dict(type=bounded_distribution_type, low=space.low, high=space.high)
+            single = dict(type=bounded_distribution_type, low=space.low, high=space.high)
+
+        # Use a mixture distribution?
+        if num_mixture_experts > 0:
+            return dict(type="mixture", _args=single, num_experts=num_mixture_experts)
+        else:
+            return single
+
     # Container Space.
     elif isinstance(space, ContainerSpace):
         return dict(

@@ -26,21 +26,32 @@ class MixtureDistribution(Distribution):
     A mixed distribution of n sub-distribution components and a categorical which determines,
     from which sub-distribution we sample.
     """
-    def __init__(self, *sub_distributions):
+    def __init__(self, *sub_distributions, num_experts=None):
         """
         Args:
             sub_distributions (List[Union[string,Distribution]]): The type-strings or actual Distribution objects
                 that define the n sub-distributions of this MixtureDistribution.
+
+            num_experts (Optional[int]): If provided and len(`sub_distributions`) == 1, clone the given single
+                sub_distribution `num_experts` times to get all sub_distributions.
         """
         super(MixtureDistribution, self).__init__()
 
         self.sub_distributions = []
-        for i, s in enumerate(sub_distributions):
-            if isinstance(s, str):
-                self.sub_distributions.append(Distribution.make({"type": s}))
-            else:
-                self.sub_distributions.append(Distribution.make(s))
+        # Default is some Normal.
+        if len(sub_distributions) == 0:
+            sub_distributions = ["normal"]
+        # If only one given AND num_experts is provided, clone the sub_distribution config.
+        if len(sub_distributions) == 1 and num_experts is not None:
+            self.sub_distributions = [Distribution.make(
+                {"type": sub_distributions[0]} if isinstance(sub_distributions[0], str) else sub_distributions[0]
+            ) for _ in range(num_experts)]
+        # Sub-distributions are given as n single configs.
+        else:
+            for i, s in enumerate(sub_distributions):
+                self.sub_distributions.append(Distribution.make({"type": s} if isinstance(s, str) else s))
 
+        # The categorical distribution to pick from our n experts when sampling.
         self.categorical = Categorical()
 
     def parameterize_distribution(self, parameters):
@@ -55,6 +66,9 @@ class MixtureDistribution(Distribution):
         # Must be a Dict with keys: 'categorical', 'parameters0', 'parameters1', etc...
         if "categorical" not in parameters:
             raise SurrealError("`parameters` for MixtureDistribution needs key: 'categorical'!")
+        elif parameters["categorical"].shape[-1] != len(self.sub_distributions):
+            raise SurrealError("`categorical` parameters does not have same size as len(`self.sub_distributions`)!")
+
         for i, s in enumerate(self.sub_distributions):
             sub_space = parameters.get("parameters{}".format(i))
             if sub_space is None:

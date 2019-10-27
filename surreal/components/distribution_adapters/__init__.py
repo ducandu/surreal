@@ -23,8 +23,8 @@ from surreal.components.distribution_adapters.categorical_distribution_adapter i
 from surreal.components.distribution_adapters.gumbel_softmax_distribution_adapter import \
     GumbelSoftmaxDistributionAdapter
 from surreal.components.distribution_adapters.normal_distribution_adapter import NormalDistributionAdapter
-from surreal.components.distribution_adapters.normal_mixture_distribution_adapter import \
-    NormalMixtureDistributionAdapter
+from surreal.components.distribution_adapters.mixture_distribution_adapter import \
+    MixtureDistributionAdapter
 from surreal.components.distribution_adapters.plain_output_adapter import PlainOutputAdapter
 from surreal.components.distribution_adapters.squashed_normal_distribution_adapter import \
     SquashedNormalDistributionAdapter
@@ -37,8 +37,8 @@ DistributionAdapter.__lookup_classes__ = dict(
     gumbelsoftmaxdistributionadapter=GumbelSoftmaxDistributionAdapter,
     gumbelsoftmaxadapter=GumbelSoftmaxDistributionAdapter,
     normaldistributionadapter=NormalDistributionAdapter,
-    normalmixtureadapter=NormalMixtureDistributionAdapter,
-    normalmixturedistributionadapter=NormalMixtureDistributionAdapter,
+    normalmixtureadapter=MixtureDistributionAdapter,
+    normalmixturedistributionadapter=MixtureDistributionAdapter,
     plainoutputadapter=PlainOutputAdapter,
     squashednormaladapter=SquashedNormalDistributionAdapter,
     squashednormaldistributionadapter=SquashedNormalDistributionAdapter,

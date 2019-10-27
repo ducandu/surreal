@@ -92,20 +92,18 @@ class JointCumulativeDistribution(Distribution):
         )
 
     def _reduce_over_sub_distributions(self, log_probs):
-        num_ranks_to_keep = self.num_main_axes
         log_probs_list = []
         for log_prob in tf.nest.flatten(log_probs):
             # Reduce sum over all ranks to get the joint log llh.
-            log_prob = tf.reduce_sum(log_prob, axis=list(range(len(log_prob.shape) - 1, num_ranks_to_keep - 1, -1)))
+            log_prob = tf.reduce_sum(log_prob, axis=list(range(len(log_prob.shape) - 1, self.num_main_axes - 1, -1)))
             log_probs_list.append(log_prob)
         return tf.reduce_sum(tf.stack(log_probs_list, axis=0), axis=0)
 
     def _entropy(self, distribution):
-        num_ranks_to_keep = self.num_main_axes
         all_entropies = []
         for distr in tf.next.flatten(distribution):
             entropy = distr.entropy()
             # Reduce sum over all ranks to get the joint log llh.
-            entropy = tf.reduce_sum(entropy, axis=list(range(len(entropy.shape) - 1, num_ranks_to_keep - 1, -1)))
+            entropy = tf.reduce_sum(entropy, axis=list(range(len(entropy.shape) - 1, self.num_main_axes - 1, -1)))
             all_entropies.append(entropy)
         return tf.reduce_sum(tf.stack(all_entropies, axis=0), axis=0)

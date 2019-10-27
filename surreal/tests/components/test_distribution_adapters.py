@@ -13,10 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
+import numpy as np
 import tensorflow as tf
 import unittest
 
-from surreal.components.distribution_adapters.plain_output_adapter import PlainOutputAdapter
+from surreal.components.distribution_adapters import BernoulliDistributionAdapter, CategoricalDistributionAdapter, \
+    MixtureDistributionAdapter, PlainOutputAdapter
 from surreal.spaces import *
 from surreal.tests import check
 from surreal.utils.numpy import dense, relu
@@ -53,6 +55,41 @@ class TestDistributionAdapters(unittest.TestCase):
         expected = dense(relu(dense(input_, weights[0], weights[1])), weights[2], weights[3])
 
         check(result, expected)
+
+    def test_bernoulli_adapter(self):
+        input_space = Float(shape=(16,), main_axes="B")
+        output_space = Bool(shape=(2,), main_axes="B")
+
+        adapter = BernoulliDistributionAdapter(output_space=output_space, activation="relu")
+        inputs = input_space.sample(32)
+        out = adapter(inputs)
+        weights = adapter.get_weights()
+
+        expected = relu(dense(inputs, weights[0], weights[1]))
+        check(out, expected, decimals=5)
+
+        # Parameters are the plain logits (no sigmoid).
+        out = adapter.get_parameters_from_adapter_outputs(out)
+        check(out, expected, decimals=5)
+
+    def test_categorical_adapter(self):
+        input_space = Float(shape=(16,), main_axes="B")
+        output_space = Int(2, shape=(3, 2), main_axes="B")
+
+        adapter = CategoricalDistributionAdapter(
+            output_space=output_space, kernel_initializer="ones", activation="relu"
+        )
+        inputs = input_space.sample(2)
+        out = adapter(inputs)
+        weights = adapter.get_weights()
+        expected = np.reshape(dense(inputs, weights[0], weights[1]), newshape=(2, 3, 2, 2))
+        check(out, expected, decimals=5)
+
+        out = adapter.get_parameters_from_adapter_outputs(out)
+        check(out, expected, decimals=5)
+
+    def test_mixture_adapter(self):
+        pass
 
     def test_copying_an_adapter(self):
         input_space = Float(-1.0, 1.0, shape=(5,), main_axes="B")

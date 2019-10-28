@@ -36,6 +36,6 @@
 
   "optimizer": {
     "type": "adam",
-    "learning_rate": 0.002
+    "learning_rate": [0.003, 0.0]
   }
 }

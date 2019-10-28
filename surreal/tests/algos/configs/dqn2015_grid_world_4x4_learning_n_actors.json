@@ -7,8 +7,8 @@
   "epsilon": {
     "type": "linear-decay",
     "from": 1.0,
-    "to": 0.05,
-    "end_time_percentage": 0.9
+    "to": 0.0,
+    "end_time_percentage": 0.95
   },
 
   "q_network": [
@@ -30,6 +30,6 @@
 
   "optimizer": {
     "type": "adam",
-    "learning_rate": [0.001, 0.00001]
+    "learning_rate": 0.001
   }
 }

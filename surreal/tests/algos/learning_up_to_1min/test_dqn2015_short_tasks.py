@@ -100,7 +100,7 @@ class TestDQN2015ShortLearningTasks(unittest.TestCase):
         n = 10
         mean_last_n = np.mean(env.historic_episodes_returns[-n:])
         print("Avg return over last {} episodes: {}".format(n, mean_last_n))
-        self.assertTrue(mean_last_n >= -0.1)
+        self.assertTrue(mean_last_n >= -0.2)
 
         # Check learnt Q-function for states 0 and 1, action=down (should be larger 0.0, ideally 0.5).
         action_values = algo.Q(preprocessor(np.array([0, 1])))

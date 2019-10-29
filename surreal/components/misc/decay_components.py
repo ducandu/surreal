@@ -130,8 +130,8 @@ class Decay(Makeable):
             "exponential": "exponential-decay"
         }
         # Single float means constant parameter.
-        if isinstance(spec, float):
-            spec = dict(constant_value=spec, type="constant")
+        if isinstance(spec, (float, int)):
+            spec = dict(constant_value=float(spec), type="constant")
         # List/tuple means simple (type)?/from/to setup.
         elif isinstance(spec, (tuple, list)):
             # from and to are given.

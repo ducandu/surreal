@@ -53,7 +53,7 @@ class Algo(Makeable, metaclass=ABCMeta):
             samples (any): The samples to use for the update.
 
             time_percentage (float): The time-percentage value (starting from 0.0 e.g. at beginning of learning to
-                1.0 at the end of learning). If None, keep current `learning_rate`.
+                1.0 at the end of learning).
 
         Returns:
             any: Some data that may be important for the Algo for further processing (e.g. loss).

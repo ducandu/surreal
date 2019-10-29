@@ -69,7 +69,7 @@ class TestDDDQNShortLearningTasks(unittest.TestCase):
         q = dueling(a_and_v, np.array([0, 1, 2, 3, 0, 1, 2, 3]))
         print(q)
         self.assertTrue(q[1] < min(q[2:]) and q[1] < q[0])  # q(s=0,a=right) is the worst
-        check(q[5], 1.0, atol=0.2)  # Q(1,->) is close to 1.0.
+        check(q[5], 1.0, atol=0.3)  # Q(1,->) is close to 1.0.
         #self.assertTrue(q[5] > max(q[:4]) and q[5] > max(q[6:]))  # q(s=1,a=right) is the best
         #check(q, [0.8, -5.0, 0.9, 0.8, 0.8, 1.0, 0.9, 0.9], decimals=1)  # a=up,down,left,right
 
@@ -81,7 +81,7 @@ class TestDDDQNShortLearningTasks(unittest.TestCase):
 
         # Create a Config.
         dqn_config = DDDQNConfig.make(
-            "{}/../configs/dddqn_cart_pole_learning_n_actors.json".format(os.path.dirname(__file__)),  # TODO: filename wrong (num actors)
+            "{}/../configs/dddqn_cart_pole_learning_n_actors.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

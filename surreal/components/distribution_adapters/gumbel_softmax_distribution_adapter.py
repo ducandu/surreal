@@ -14,10 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
-import tensorflow as tf
-
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
-from surreal.utils.util import MIN_LOG_NN_OUTPUT, MAX_LOG_NN_OUTPUT
 
 
 class GumbelSoftmaxDistributionAdapter(DistributionAdapter):

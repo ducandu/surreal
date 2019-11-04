@@ -36,6 +36,7 @@ DistributionAdapter.__lookup_classes__ = dict(
     betadistributionadapter=BetaDistributionAdapter,
     gumbelsoftmaxdistributionadapter=GumbelSoftmaxDistributionAdapter,
     gumbelsoftmaxadapter=GumbelSoftmaxDistributionAdapter,
+    normaladapter=NormalDistributionAdapter,
     normaldistributionadapter=NormalDistributionAdapter,
     normalmixtureadapter=MixtureDistributionAdapter,
     normalmixturedistributionadapter=MixtureDistributionAdapter,

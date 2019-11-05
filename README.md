@@ -15,7 +15,7 @@ describing the algorithm has been thoroughly understood.
 
 This is accomplished by the following design choices:
 
-##### Simplicity first:
+#### Simplicity first:
 Algo code looks very much like pseudocode and is extremely short. For example, our implementation of the DQN2015 
 algorithm is 40 lines at its core - not counting comments, import statements and the 
 (heavily documented) DQN configuration code. Our SAC implementation is 70 lines long.
@@ -38,11 +38,11 @@ algorithm is 40 lines at its core - not counting comments, import statements and
         a_ = np.argmax(self.Q(s_))  # looks like pseudocode: Q-function called directly
 ```
 
-##### TensorFlow 2.0 based:
+#### TensorFlow 2.0 based:
 Tf2.0's eager execution mechanism by default allows for faster coding and better debuggability 
 of our algos while maintaining the incredible execution speed we are used to from tensorflow 1.x.
 
-##### Keras API:
+#### Keras API:
 Surreal's neural networks are implemented strictly following the Keras API and can
 be directly called in various intuitive ways:
 
@@ -76,7 +76,7 @@ a, log_likelihood = pi(s, log_likelihood=True)  # Sample an action given s and a
 likelihood = pi(s, a)  # Return the likelihood/prob of action given s.
 ```
 
-##### Environment driven execution design (the env runs the show):
+#### Environment driven execution design (the env runs the show):
 The environment controls execution in Surreal. Events are sent to the algorithms, which then simply need to implement 
 a handler (`tick`) method, in which all algo execution logic is stored.
 This tick method is the heart of the `Algo` class and 
@@ -85,17 +85,17 @@ In the future, this env-driven design will allow for easy integration of
 multi-agent-, distributed-, as well as, game engine-driven execution patterns, in which different actors
 (e.g. an NPC) in a game use different algos at different training/inference stages for smart decision making.
 
-##### Mixing of execution- and mathematical- logic inside an Algo class:
+#### Mixing of execution- and mathematical- logic inside an Algo class:
 Many algorithms are characterized by their unique execution patterns as well as their characteristic math
 (e.g. loss functions). Most of the time, these two concepts are intertwined and cannot be fully separated artificially.
 The core unit of Surreal is the `Algo` class, in which all of the learning magic happens (in less than 100 lines).
 
-##### Strong reusability via well-tested, standard deep learning components:
+#### Strong reusability via well-tested, standard deep learning components:
 Most algorithms share a large number of ever repeating, standard components such as memories, buffers, preprocessors,
 function approximators, decay components, optimizers, multi-GPU handling components, "n-step" components, etc..
 Surreal comes with all of these and they have been thoroughly tested. 50% of the code are test cases!
 
-##### Memory-saving "next-record" logic in all memory components:
+#### Memory-saving "next-record" logic in all memory components:
 Memories for RL Algos (such as a replay buffer) usually waste lots of space due to the 
 "next-state problem" (the next state s' must be tied to the state s in e.g. DQN's sars-tuples).
 Surreal has a smart way of flexible and efficient "next-record" handling that even supports arbitrary 

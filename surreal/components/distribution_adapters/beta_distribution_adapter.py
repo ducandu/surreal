@@ -26,13 +26,14 @@ class BetaDistributionAdapter(DistributionAdapter):
     Action adapter for the Beta distribution
     """
     def get_units_and_shape(self):
-        units = 2 * self.output_space.flat_dim  # Those two dimensions are the mean and log sd
         # Add moments (2x for each action item).
+        units = 2 * self.output_space.flat_dim
         if self.output_space.shape == ():
             new_shape = self.output_space.get_shape(include_main_axes=True) + (2,)
         else:
             shape = self.output_space.get_shape(include_main_axes=True)
             new_shape = tuple(list(shape[:-1]) + [shape[-1] * 2])
+
         new_shape = tuple([i if i is not None else -1 for i in new_shape])
         return units, new_shape
 

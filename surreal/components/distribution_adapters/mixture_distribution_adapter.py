@@ -28,10 +28,10 @@ class MixtureDistributionAdapter(DistributionAdapter):
             num_experts (Optional[int]): If provided and len(`sub_adapters`) == 1, clone the given single
                 sub_adapters `num_experts` times to get all sub_adapters.
         """
+        self.num_experts = (num_experts or len(sub_adapters))
         super().__init__(output_space=output_space, **kwargs)
 
         self.sub_adapters = []
-        self.num_experts = num_experts
 
         # Default is some Normal.
         if len(sub_adapters) == 0:
@@ -49,31 +49,6 @@ class MixtureDistributionAdapter(DistributionAdapter):
                     {"type": s, "output_space": output_space} if isinstance(s, str) else s)
                 )
 
-        if self.num_experts is None:
-            self.num_experts = len(self.sub_adapters)
-
-    #def __init__(self, output_space, *sub_adapters, **kwargs):
-    #    """
-    #    Args:
-    #        sub_adapters (Union[DistributionAdapter,dict]): The sub-Adapters' specs.
-    #    """
-    #    super(MixtureDistributionAdapter, self).__init__(output_space, **kwargs)
-
-    #    # Continuous actions.
-    #    # For now, assume unbounded outputs.
-    #    assert isinstance(self.output_space, Float) and self.output_space.unbounded
-
-    #    self.num_mixtures = kwargs.get("num_mixtures", 0)
-
-    #    if len(sub_adapters) == 1 and self.num_mixtures > 1:
-    #        self.sub_adapters = \
-    #            [DistributionAdapter.make(sub_adapters[0], output_space=output_space) for _ in range(self.num_mixtures)]
-    #    else:
-    #        self.sub_adapters = [DistributionAdapter.make(s, output_space=output_space) for s in sub_adapters]
-
-    #    if self.num_mixtures == 0:
-    #        self.num_mixtures = len(self.sub_adapters)
-
     def get_units_and_shape(self):
         new_shape = list(self.output_space.get_shape(with_category_rank=True))
         # num_experts=categorical nodes.
@@ -82,28 +57,21 @@ class MixtureDistributionAdapter(DistributionAdapter):
         return self.num_experts, new_shape
 
     def get_parameters_from_adapter_outputs(self, adapter_outputs):
-        # Parameterize the categorical distribution, which will pick one of the mixture ones.
-        parameters = {"categorical": adapter_outputs["categorical"]}
-        # Get parameters of sub-adapters.
-        for i, s in enumerate(self.sub_adapters):
-            parameters["parameters{}".format(i)] = \
-                s.get_parameters_from_adapter_outputs(adapter_outputs["outputs{}".format(i)])
-
-        return parameters
+        pass
 
     def call(self, inputs):
-        outputs = {}
+        parameters = {}
         if self.pre_network is not None:
-            outputs["categorical"] = self.output_layer(self.pre_network(inputs))
+            parameters["categorical"] = self.output_layer(self.pre_network(inputs))
         else:
-            outputs["categorical"] = self.output_layer(inputs)
+            parameters["categorical"] = self.output_layer(inputs)
 
         # Get outputs of sub-adapters.
         for i, s in enumerate(self.sub_adapters):
-            outputs["outputs{}".format(i)] = s(inputs)
+            parameters["parameters{}".format(i)] = s(inputs)
 
         # Return parameters.
-        return self.get_parameters_from_adapter_outputs(outputs)
+        return parameters  #self.get_parameters_from_adapter_outputs(outputs)
 
     def copy(self, trainable=None):
         # Hide non-copyable members.
@@ -136,7 +104,7 @@ class MixtureDistributionAdapter(DistributionAdapter):
 
     def _get_weights_list(self):
         # Own weights.
-        weights_list = [self.pre_network.variables if self.pre_network is not None else []] + \
+        weights_list = (self.pre_network.variables if self.pre_network is not None else []) + \
                self.output_layer.variables
         # Get weights of sub-adapters.
         for i, s in enumerate(self.sub_adapters):

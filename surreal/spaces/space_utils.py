@@ -20,7 +20,7 @@ import tensorflow as tf
 from surreal.spaces.primitive_spaces import PrimitiveSpace, Bool, Int, Float, Text
 from surreal.spaces.container_spaces import ContainerSpace, Dict, Tuple
 from surreal.utils.errors import SurrealError, SurrealSpaceError
-from surreal.utils.util import convert_dtype, get_shape, LARGE_INTEGER, force_tuple
+from surreal.utils.util import convert_dtype, LARGE_INTEGER, force_tuple
 
 
 # TODO: replace completely by `Component.get_variable` (python-backend)
@@ -31,7 +31,7 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
 
     Args:
         from_space: Space to create registry from.
-        capacity (Optional[int]): Optional capacity to initalize list.
+        capacity (Optional[int]): Optional capacity to initialize list.
         initializer (Optional(any)): Optional initializer for list if capacity is not None.
         flatten (bool): Whether to produce a FlattenedDataOp with auto-keys.
 

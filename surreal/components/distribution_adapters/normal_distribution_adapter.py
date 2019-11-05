@@ -32,7 +32,6 @@ class NormalDistributionAdapter(DistributionAdapter):
         else:
             shape = self.output_space.get_shape(include_main_axes=True)
             new_shape = tuple(list(shape[:-1]) + [shape[-1] * 2])
-            #new_shape = tuple([i if i is not None else -1 for i in new_shape[:-1]] + [new_shape[-1] * 2])
 
         new_shape = tuple([i if i is not None else -1 for i in new_shape])
         return units, new_shape

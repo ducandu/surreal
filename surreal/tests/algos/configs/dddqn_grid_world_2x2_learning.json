@@ -3,8 +3,8 @@
 
   "n_step": 2,
 
-  "memory_capacity": 512,
-  "memory_batch_size": 64,
+  "memory_capacity": 64,
+  "memory_batch_size": 24,
 
   "epsilon": {
     "type": "linear_decay",
@@ -16,7 +16,7 @@
   "q_network": [
     {
       "name": "dense",
-      "units": 5,
+      "units": 10,
       "activation": "linear"
     }
   ],

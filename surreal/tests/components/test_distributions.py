@@ -16,6 +16,7 @@
 
 import numpy as np
 from scipy.stats import norm, beta, multivariate_normal
+import scipy
 import unittest
 
 from surreal.components.distributions import *
@@ -344,13 +345,21 @@ class TestDistributions(unittest.TestCase):
             category_probs = softmax(params["categorical"][0])
             values = values_space.sample(1)
             expected = 0.0
+            v = []
             for j in range(3):
-                expected += category_probs[j] * multivariate_normal.pdf(
+                v.append(multivariate_normal.pdf(
                     values[0], mean=params["parameters{}".format(j)][0][0], cov=params["parameters{}".format(j)][1][0]
-                )
+                ))
+                expected += category_probs[j] * v[-1]
             out = mixture.prob(params, values)
             check(out[0], expected, atol=0.1)
-            expected = np.sum(np.log(expected), axis=-1)
+
+            expected = np.zeros(shape=(3,))
+            for j in range(3):
+                expected[j] = np.log(category_probs[j]) + np.log(multivariate_normal.pdf(
+                    values[0], mean=params["parameters{}".format(j)][0][0], cov=params["parameters{}".format(j)][1][0]
+                ))
+            expected = np.log(np.sum(np.exp(expected)))
             out = mixture.log_prob(params, values)
             print("{}: out={} expected={}".format(i, out, expected))
             check(out, np.array([expected]), atol=0.25)

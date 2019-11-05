@@ -12,6 +12,7 @@ RUN apt-get install -y libsm6 libxext6 libxrender-dev
 RUN pip3 install --upgrade pip
 # Install necessary pip packages.
 RUN pip3 install numpy pydevd tensorflow tensorflow_probability gym scipy pyyaml gym[atari] opencv-python pytest \
-    requests lz4 pyarrow wheel atari_py
+    requests lz4 pyarrow wheel atari_py pygame
+#RUN pip3 install unittest
 
 CMD ["bash"]

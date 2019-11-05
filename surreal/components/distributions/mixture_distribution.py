@@ -64,15 +64,12 @@ class MixtureDistribution(Distribution):
             tfp.Distribution: The ready-to-be-sampled mixed distribution.
         """
         # Must be a Dict with keys: 'categorical', 'parameters0', 'parameters1', etc...
-        if "categorical" not in parameters:
-            raise SurrealError("`parameters` for MixtureDistribution needs key: 'categorical'!")
-        elif parameters["categorical"].shape[-1] != len(self.sub_distributions):
-            raise SurrealError("`categorical` parameters does not have same size as len(`self.sub_distributions`)!")
-
+        assert "categorical" in parameters, "`parameters` for MixtureDistribution needs key: 'categorical'!"
+        assert parameters["categorical"].shape[-1] == len(self.sub_distributions), \
+            "`categorical` parameters does not have same size as len(`self.sub_distributions`)!"
         for i, s in enumerate(self.sub_distributions):
-            sub_space = parameters.get("parameters{}".format(i))
-            if sub_space is None:
-                raise SurrealError("`parameters` for MixtureDistribution needs key: 'parameters{}'!".format(i))
+            assert "parameters{}".format(i) in parameters, \
+                "`parameters` for MixtureDistribution needs key: 'parameters{}'!".format(i)
 
         components = []
         for i, s in enumerate(self.sub_distributions):

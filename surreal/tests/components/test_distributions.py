@@ -487,7 +487,7 @@ class TestDistributions(unittest.TestCase):
         }, main_axes="B")
 
         low, high = -1.0, 1.0
-        joined_cumulative_distribution = JointCumulativeDistribution(distributions={
+        joint_cumulative_distribution = JointCumulativeDistribution(distributions={
             "a": Categorical(), "b": {"ba": MultivariateNormal(), "bb": Beta(low=low, high=high), "bc": Normal()}
         })
 
@@ -505,9 +505,9 @@ class TestDistributions(unittest.TestCase):
         }
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(100):
-            out = joined_cumulative_distribution.sample(input_, deterministic=True)
+            out = joint_cumulative_distribution.sample(input_, deterministic=True)
             check(out, expected_mean)
-            out = joined_cumulative_distribution.sample_deterministic(input_)
+            out = joint_cumulative_distribution.sample_deterministic(input_)
             check(out, expected_mean)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
@@ -524,10 +524,10 @@ class TestDistributions(unittest.TestCase):
         }
 
         outs = []
-        for _ in range(100):
-            out = joined_cumulative_distribution.sample(input_)
+        for _ in range(500):
+            out = joint_cumulative_distribution.sample(input_)
             outs.append(out)
-            out = joined_cumulative_distribution.sample_stochastic(input_)
+            out = joint_cumulative_distribution.sample_stochastic(input_)
             outs.append(out)
 
         check(np.mean(np.stack([o["a"][0] for o in outs], axis=0), axis=0), expected_mean["a"], atol=0.2)
@@ -551,5 +551,5 @@ class TestDistributions(unittest.TestCase):
             np.sum(log_prob_beta) + \
             np.sum(np.log(norm.pdf(values["b"]["bc"][0], params["b"]["bc"][0], params["b"]["bc"][1])))
 
-        out = joined_cumulative_distribution.log_prob(params, values)
+        out = joint_cumulative_distribution.log_prob(params, values)
         check(out, expected_log_llh, decimals=0)

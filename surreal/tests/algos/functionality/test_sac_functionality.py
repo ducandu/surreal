@@ -62,7 +62,7 @@ class TestSACFunctionality(unittest.TestCase):
         entropy_target = 0.97
 
         out = SACLoss()(
-            input_, alpha, pi, q_nets, target_q_nets,
+            input_, alpha, entropy_target, pi, q_nets, target_q_nets,
             namedtuple("FakeSACConfig", ["gamma", "entropy_target", "optimize_alpha"])(
                 gamma=gamma, entropy_target=entropy_target, optimize_alpha=True
             )

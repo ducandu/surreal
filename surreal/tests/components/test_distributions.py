@@ -122,7 +122,7 @@ class TestDistributions(unittest.TestCase):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
         param_space = Tuple(
             Float(shape=(5,)),  # mean
-            Float(shape=(5,)),  # stddev
+            Float(0.5, 1.0, shape=(5,)),  # stddev
             main_axes="B"
         )
         values_space = Float(shape=(5,), main_axes="B")
@@ -177,7 +177,7 @@ class TestDistributions(unittest.TestCase):
         num_mixed_gaussians = 2  # 2x trivariate Gaussians (mixed)
         param_space = Tuple(
             Float(shape=(num_mixed_gaussians, num_events)),  # mean
-            Float(shape=(num_mixed_gaussians, num_events)),  # diag (variance)
+            Float(0.5, 1.0, shape=(num_mixed_gaussians, num_events)),  # diag (variance)
             main_axes="B"
         )
         values_space = Float(shape=(num_mixed_gaussians, num_events), main_axes="B")
@@ -365,7 +365,7 @@ class TestDistributions(unittest.TestCase):
             check(out, np.array([expected]), atol=0.25)
 
     def test_squashed_normal(self):
-        param_space = Tuple(Float(shape=(5,)), Float(shape=(5,)), main_axes="B")
+        param_space = Tuple(Float(-1.0, 1.0, shape=(5,)), Float(0.5, 1.0, shape=(5,)), main_axes="B")
 
         low, high = -2.0, 1.0
         squashed_distribution = SquashedNormal(low=low, high=high)

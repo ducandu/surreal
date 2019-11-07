@@ -41,6 +41,7 @@ class TestDDDQNFunctionality(unittest.TestCase):
         config = DDDQNConfig.make(
             # Breakout should be the same as MsPacman.
             "{}/../configs/dddqn_breakout_learning.json".format(os.path.dirname(__file__)),
+            memory_capacity=1000,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

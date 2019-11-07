@@ -20,7 +20,7 @@ import tensorflow as tf
 from surreal import PATH_PREPROCESSING_LOGS
 from surreal.debug import StorePreprocessingEveryNCalls, StorePreprocessingOnlyForFirstNPreprocessorComponents
 from surreal.makeable import Makeable
-from surreal.spaces import Space
+from surreal.spaces import Int, Space
 from surreal.spaces.space_utils import get_space_from_data
 
 
@@ -75,8 +75,11 @@ class Preprocessor(Makeable):
         if isinstance(inputs, Space):
             sample = inputs.sample()
             preprocessed_sample = self.call(sample)
-            main_axes_after_preprocessing = inputs.main_axes
-            out_space = get_space_from_data(preprocessed_sample, main_axes=main_axes_after_preprocessing)
+            main_axes = inputs.main_axes
+            num_categories = tf.nest.map_structure(
+                lambda s: s.num_categories if isinstance(s, Int) else None, inputs.structure
+            )
+            out_space = get_space_from_data(preprocessed_sample, num_categories=num_categories, main_axes=main_axes)
             return out_space
         else:
             return self.call(inputs)
@@ -136,6 +139,19 @@ class Preprocessor(Makeable):
 
     @classmethod
     def make(cls, spec=None, **kwargs):
+        # Spec is a list/tuple -> Build a simple sequential preprocessor.
+        if isinstance(spec, (tuple, list)):
+            return super().make(None, _args=spec, **kwargs)
+        # Special "Atari" preprocessor for simplicity in all our configs.
+        elif spec == "atari":
+            spec = None
+            kwargs["_args"] = [
+                {"type": "image-crop", "x": 5, "y": 29, "width": 150, "height": 167},
+                {"type": "gray-scale", "keepdims": True},
+                {"type": "image-resize", "width": 84, "height": 84, "interpolation": "bilinear"},
+                {"type": "lambda-preprocessor", "code": "lambda inputs_: ((inputs_ / 128) - 1.0).astype(np.float32)"},
+                {"type": "sequence", "sequence_length": 4, "adddim": False}
+            ]
         #if callable(spec):
         #    return super().make(_args=[spec])
         return super().make(spec, **kwargs)

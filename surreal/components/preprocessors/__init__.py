@@ -16,6 +16,7 @@
 from surreal.components.preprocessors.grayscale import GrayScale
 from surreal.components.preprocessors.image_crop import ImageCrop
 from surreal.components.preprocessors.image_resize import ImageResize
+from surreal.components.preprocessors.lambda_preprocessor import LambdaPreprocessor
 from surreal.components.preprocessors.moving_standardize import MovingStandardize
 from surreal.components.preprocessors.normalize import Normalize
 from surreal.components.preprocessors.preprocessor import Preprocessor
@@ -25,6 +26,7 @@ Preprocessor.__lookup_classes__ = dict(
     grayscale=GrayScale,
     imagecrop=ImageCrop,
     imageresize=ImageResize,
+    lambdapreprocessor=LambdaPreprocessor,
     movingstandardize=MovingStandardize,
     normalize=Normalize,
     preprocessor=Preprocessor,

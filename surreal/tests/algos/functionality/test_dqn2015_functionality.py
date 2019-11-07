@@ -53,6 +53,8 @@ class TestDQN2015Functionality(unittest.TestCase):
         dqn2015 = DQN2015(config)
         print("DQN2015 built ({}).".format(dqn2015))
 
+        env.terminate()
+
     def test_dqn2015_loss_function(self):
         # Batch of size=2.
         input_ = {

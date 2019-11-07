@@ -49,6 +49,8 @@ class TestSACFunctionality(unittest.TestCase):
         sac = SAC(config)
         print("SAC built ({}).".format(sac))
 
+        env.terminate()
+
     def test_sac_loss_function(self):
         # Batch of size=2.
         input_ = {

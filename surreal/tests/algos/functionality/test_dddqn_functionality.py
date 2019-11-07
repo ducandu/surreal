@@ -47,6 +47,8 @@ class TestDDDQNFunctionality(unittest.TestCase):
         dddqn = DDDQN(config)
         print("DDDQN built ({}).".format(dddqn))
 
+        env.terminate()
+
     def test_dddqn_loss_function(self):
         """
         Tests the dueling/double q-loss function assuming an n-step of 1.

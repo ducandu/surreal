@@ -41,3 +41,4 @@ class TestDADSFunctionality(unittest.TestCase):
         dads = DADS(config, name="my-dads")
         print("DADS built ({}).".format(dads))
 
+        env.terminate()

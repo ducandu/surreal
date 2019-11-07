@@ -30,14 +30,15 @@ install_requires = [
     'pyyaml',
     'pytest',
     'requests',
-    'scipy'
+    'scipy',
+    'tensorflow',
+    'tensorflow_probability'
 ]
 
 setup_requires = []
 
 extras_require = {
     'atari': ['swig', 'box2d'],
-    'tf': ['tensorflow', 'tensorflow_probability'],
     'tf-gpu': ['tensorflow-gpu', 'tensorflow_probability'],
     # To use openAI Gym Envs (e.g. Atari).
     # for Win atari: pip install --no-index -f https://github.com/Kojoley/atari-py/releases atari_py

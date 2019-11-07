@@ -43,10 +43,10 @@ class TestDQN2015Functionality(unittest.TestCase):
         """
         Tests the c'tor of DDDQN.
         """
-        env = OpenAIGymEnv("", actors=4)
+        env = OpenAIGymEnv("CartPole-v0", actors=3)
         # Create a Config (for any Atari game).
         config = DQN2015Config.make(
-            "{}/../configs/dqn2015_breakout_learning.json".format(os.path.dirname(__file__)),
+            "{}/../configs/dqn2015_cart_pole_learning_n_actors.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )

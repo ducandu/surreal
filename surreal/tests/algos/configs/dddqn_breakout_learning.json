@@ -13,6 +13,8 @@
     "end_time_percentage": 0.1
   },
 
+  "preprocessor": "atari",
+
   "q_network": [
     {
       "name": "conv2d",

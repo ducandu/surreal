@@ -13,6 +13,8 @@
   "entropy_target": [2.0, 0.4],
   "gumbel_softmax_temperature": 1.0,
 
+  "preprocessor": "atari",
+
   "policy_network": [
     {
       "name": "conv2d",

@@ -20,7 +20,6 @@ import os
 import unittest
 
 from surreal.algos.sac import SAC, SACConfig
-from surreal.components.preprocessors import Preprocessor, GrayScale, ImageResize, ImageCrop, Sequence
 import surreal.debug as debug
 from surreal.envs import OpenAIGymEnv
 
@@ -38,17 +37,9 @@ class TestSACLongLearningTasks(unittest.TestCase):
             frame_skip=(2, 5)
         )
 
-        preprocessor = Preprocessor(
-            ImageCrop(x=5, y=29, width=150, height=167),
-            GrayScale(keepdims=True),
-            ImageResize(width=84, height=84, interpolation="bilinear"),
-            lambda inputs_: ((inputs_ / 128) - 1.0).astype(np.float32),  # simple preprocessor: [0,255] to [-1.0,1.0]
-            Sequence(sequence_length=4, adddim=False)
-        )
         # Create a DQN2015Config.
         config = SACConfig.make(
             "{}/../configs/sac_space_invaders_learning.json".format(os.path.dirname(__file__)),
-            preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space,
             summaries=["Ls_critic[0]", "Ls_critic[1]", "L_actor", "L_alpha", "alpha", ("actions", "a_soft.value[0]")]
@@ -77,17 +68,9 @@ class TestSACLongLearningTasks(unittest.TestCase):
             frame_skip=(2, 5)
         )
 
-        preprocessor = Preprocessor(
-            ImageCrop(x=5, y=29, width=150, height=167),
-            GrayScale(keepdims=True),
-            ImageResize(width=84, height=84, interpolation="bilinear"),
-            lambda inputs_: ((inputs_ / 128) - 1.0).astype(np.float32),  # simple preprocessor: [0,255] to [-1.0,1.0]
-            Sequence(sequence_length=4, adddim=False)
-        )
         # Create a DQN2015Config.
         config = SACConfig.make(
             "{}/../configs/sac_breakout_learning.json".format(os.path.dirname(__file__)),
-            preprocessor=preprocessor,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space,
             summaries=[

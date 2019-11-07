@@ -9,7 +9,10 @@
   "memory_batch_size": 256,
 
   "initial_alpha": 1.0,
+  "optimize_alpha": true,
   "gumbel_softmax_temperature": 1.0,
+
+  "preprocessor": "atari",
 
   "policy_network": [
     {
@@ -97,7 +100,7 @@
 
   "q_optimizer": {
     "type": "adam",
-    "learning_rate": 0.0005,
+    "learning_rate": 0.0008,
     "clip_norm": 40
   },
 

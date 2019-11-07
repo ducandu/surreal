@@ -16,37 +16,43 @@
 
 import re
 
+from surreal.components.distributions.distribution import Distribution
 from surreal.utils.errors import SurrealError
 
 
-def get_adapter_type_from_distribution_type(distribution_type_str):
+def get_adapter_spec_from_distribution_spec(distribution_spec):
     """
     Args:
-        distribution_type_str (str): The type (str) of the Distribution object, for which to return an appropriate
-            DistributionAdapter lookup-class string.
+        distribution_spec (Union[dict,Distribution]): The spec of the Distribution object, for which to return an
+            appropriate DistributionAdapter spec dict.
 
     Returns:
-        str: The lookup-class string for an action-adapter.
+        dict: The spec-dict to make a DistributionAdapter.
     """
-    distribution_type_str = re.sub(r'[\W]', "", distribution_type_str.lower())
-    # Int: Categorical.
+    # Create a dummy-distribution to get features from it.
+    distribution = Distribution.make(distribution_spec)
+    distribution_type_str = re.sub(r'[\W]|distribution$', "", type(distribution).__name__.lower())
+
     if distribution_type_str == "categorical":
-        return "categorical-distribution-adapter"
-    elif distribution_type_str == "gumbelsoftmax" or distribution_type_str == "gumblesoftmax":
-        return "gumbel-softmax-distribution-adapter"
-    # Bool: Bernoulli.
+        return dict(type="categorical-distribution-adapter")
+    elif distribution_type_str == "gumbelsoftmax":
+        return dict(type="gumbel-softmax-distribution-adapter")
     elif distribution_type_str == "bernoulli":
-        return "bernoulli-distribution-adapter"
-    # Continuous action space: Normal/Beta/etc. distribution.
-    # Unbounded -> Normal distribution.
+        return dict(type="bernoulli-distribution-adapter")
     elif distribution_type_str == "normal":
-        return "normal-distribution-adapter"
-    # Bounded -> Beta.
+        return dict(type="normal-distribution-adapter")
+    elif distribution_type_str == "multivariatenormal":
+        return dict(type="multivariate-normal-distribution-adapter")
     elif distribution_type_str == "beta":
-        return "beta-distribution-adapter"
-    # Bounded -> Squashed Normal.
+        return dict(type="beta-distribution-adapter")
     elif distribution_type_str == "squashednormal":
-        return "squashed-normal-distribution-adapter"
+        return dict(type="squashed-normal-distribution-adapter")
+    elif distribution_type_str == "mixture":
+        return dict(
+            type="mixture-distribution-adapter",
+            _args=[get_adapter_spec_from_distribution_spec(re.sub(r'[\W]|distribution$', "", type(s).__name__.lower())) for
+                   s in distribution.sub_distributions]
+        )
     else:
         raise SurrealError("'{}' is an unknown Distribution type!".format(distribution_type_str))
 

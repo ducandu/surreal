@@ -15,7 +15,7 @@
 # ==============================================================================
 
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
-from surreal.components.distribution_adapters.adapter_utils import get_adapter_type_from_distribution_type, \
+from surreal.components.distribution_adapters.adapter_utils import get_adapter_spec_from_distribution_spec, \
     get_distribution_spec_from_adapter
 from surreal.components.distribution_adapters.bernoulli_distribution_adapter import BernoulliDistributionAdapter
 from surreal.components.distribution_adapters.beta_distribution_adapter import BetaDistributionAdapter
@@ -25,6 +25,8 @@ from surreal.components.distribution_adapters.gumbel_softmax_distribution_adapte
 from surreal.components.distribution_adapters.normal_distribution_adapter import NormalDistributionAdapter
 from surreal.components.distribution_adapters.mixture_distribution_adapter import \
     MixtureDistributionAdapter
+from surreal.components.distribution_adapters.multivariate_normal_distribution_adapter import \
+    MultivariateNormalDistributionAdapter
 from surreal.components.distribution_adapters.plain_output_adapter import PlainOutputAdapter
 from surreal.components.distribution_adapters.squashed_normal_distribution_adapter import \
     SquashedNormalDistributionAdapter
@@ -36,6 +38,10 @@ DistributionAdapter.__lookup_classes__ = dict(
     betadistributionadapter=BetaDistributionAdapter,
     gumbelsoftmaxdistributionadapter=GumbelSoftmaxDistributionAdapter,
     gumbelsoftmaxadapter=GumbelSoftmaxDistributionAdapter,
+    mixtureadapter=MixtureDistributionAdapter,
+    mixturedistributionadapter=MixtureDistributionAdapter,
+    multivariatenormaladapter=MultivariateNormalDistributionAdapter,
+    multivariatenormaldistributionadapter=MultivariateNormalDistributionAdapter,
     normaladapter=NormalDistributionAdapter,
     normaldistributionadapter=NormalDistributionAdapter,
     normalmixtureadapter=MixtureDistributionAdapter,
@@ -45,6 +51,6 @@ DistributionAdapter.__lookup_classes__ = dict(
     squashednormaldistributionadapter=SquashedNormalDistributionAdapter,
 )
 
-__all__ = ["DistributionAdapter", "get_adapter_type_from_distribution_type",
+__all__ = ["DistributionAdapter", "get_adapter_spec_from_distribution_spec",
            "get_distribution_spec_from_action_adapter"] + \
           list(set(map(lambda x: x.__name__, DistributionAdapter.__lookup_classes__.values())))

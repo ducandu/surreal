@@ -16,6 +16,7 @@
 from collections import namedtuple
 import logging
 import numpy as np
+import os
 import tensorflow as tf
 import unittest
 
@@ -23,7 +24,8 @@ import surreal.debug as debug
 # Override debug setting. Needed for some of the tests.
 debug.KeepLastMemoryBatch = True
 
-from surreal.algos.sac import SACLoss
+from surreal.algos.sac import SAC, SACConfig, SACLoss
+from surreal.envs import OpenAIGymEnv
 from surreal.tests.test_util import check
 
 
@@ -32,6 +34,20 @@ class TestSACFunctionality(unittest.TestCase):
     Tests the SAC algo functionality (loss functions, execution logic, etc.).
     """
     logging.getLogger().setLevel(logging.INFO)
+
+    def test_sac_compilation(self):
+        """
+        Tests the c'tor of SAC.
+        """
+        env = OpenAIGymEnv("Pong-v0", actors=2)
+        # Create a Config (for any Atari game).
+        config = SACConfig.make(
+            "{}/../configs/sac_breakout_learning.json".format(os.path.dirname(__file__)),
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space
+        )
+        sac = SAC(config)
+        print("SAC built ({}).".format(sac))
 
     def test_sac_loss_function(self):
         # Batch of size=2.

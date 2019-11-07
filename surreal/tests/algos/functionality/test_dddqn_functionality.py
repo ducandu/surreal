@@ -22,7 +22,7 @@ import unittest
 
 from surreal.algos.dddqn import DDDQN, DDDQNConfig, DDDQNLoss
 from surreal.components.preprocessors import Preprocessor
-from surreal.envs import GridWorld
+from surreal.envs import GridWorld, OpenAIGymEnv
 from surreal.tests.test_util import check
 
 
@@ -31,6 +31,21 @@ class TestDDDQNFunctionality(unittest.TestCase):
     Tests the DDDQN algo functionality (loss functions, execution logic, etc.).
     """
     logging.getLogger().setLevel(logging.INFO)
+
+    def test_dddqn_compilation(self):
+        """
+        Tests the c'tor of DDDQN.
+        """
+        env = OpenAIGymEnv("MsPacman-v0", actors=4)
+        # Create a Config (for any Atari game).
+        config = DDDQNConfig.make(
+            # Breakout should be the same as MsPacman.
+            "{}/../configs/dddqn_breakout_learning.json".format(os.path.dirname(__file__)),
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space
+        )
+        dddqn = DDDQN(config)
+        print("DDDQN built ({}).".format(dddqn))
 
     def test_dddqn_loss_function(self):
         """

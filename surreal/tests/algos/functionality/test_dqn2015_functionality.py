@@ -28,7 +28,7 @@ debug.KeepLastMemoryBatch = True
 
 from surreal.algos.dqn2015 import DQN2015, DQN2015Config, DQN2015Loss
 from surreal.components.preprocessors.preprocessor import Preprocessor
-from surreal.envs import GridWorld
+from surreal.envs import GridWorld, OpenAIGymEnv
 from surreal.tests.test_util import check
 from surreal.utils.numpy import dense, one_hot
 
@@ -38,6 +38,20 @@ class TestDQN2015Functionality(unittest.TestCase):
     Tests the DQN2015 algo functionality (loss functions, execution logic, etc.).
     """
     logging.getLogger().setLevel(logging.INFO)
+
+    def test_dqn2015_compilation(self):
+        """
+        Tests the c'tor of DDDQN.
+        """
+        env = OpenAIGymEnv("", actors=4)
+        # Create a Config (for any Atari game).
+        config = DQN2015Config.make(
+            "{}/../configs/dqn2015_breakout_learning.json".format(os.path.dirname(__file__)),
+            state_space=env.actors[0].state_space,
+            action_space=env.actors[0].action_space
+        )
+        dqn2015 = DQN2015(config)
+        print("DQN2015 built ({}).".format(dqn2015))
 
     def test_dqn2015_loss_function(self):
         # Batch of size=2.

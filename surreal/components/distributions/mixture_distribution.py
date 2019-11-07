@@ -35,12 +35,12 @@ class MixtureDistribution(Distribution):
             num_experts (Optional[int]): If provided and len(`sub_distributions`) == 1, clone the given single
                 sub_distribution `num_experts` times to get all sub_distributions.
         """
-        super(MixtureDistribution, self).__init__()
+        super().__init__()
 
         self.sub_distributions = []
-        # Default is some Normal.
+        # Default is a multivariate Normal (with diagonal parameterization (just like Normal)).
         if len(sub_distributions) == 0:
-            sub_distributions = ["normal"]
+            sub_distributions = ["multivariate-normal"]
         # If only one given AND num_experts is provided, clone the sub_distribution config.
         if len(sub_distributions) == 1 and num_experts is not None:
             self.sub_distributions = [Distribution.make(
@@ -71,14 +71,12 @@ class MixtureDistribution(Distribution):
             assert "parameters{}".format(i) in parameters, \
                 "`parameters` for MixtureDistribution needs key: 'parameters{}'!".format(i)
 
+        cat = self.categorical.parameterize_distribution(parameters["categorical"])
         components = []
         for i, s in enumerate(self.sub_distributions):
             components.append(s.parameterize_distribution(parameters["parameters{}".format(i)]))
 
-        return tfp.distributions.Mixture(
-            cat=self.categorical.parameterize_distribution(parameters["categorical"]),
-            components=components
-        )
+        return tfp.distributions.Mixture(cat=cat, components=components)
 
     def _sample_deterministic(self, distribution):
         return distribution.mean()

@@ -16,10 +16,11 @@
 import copy
 
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
+from surreal.utils.util import default_dict
 
 
 class MixtureDistributionAdapter(DistributionAdapter):
-    def __init__(self, output_space, *sub_adapters, num_experts=None, **kwargs):
+    def __init__(self, *sub_adapters, num_experts=None, **kwargs):
         """
         Args:
             sub_adapters (List[Union[string,DistributionAdapter]]): The type-strings or actual DistributionAdapter
@@ -27,7 +28,11 @@ class MixtureDistributionAdapter(DistributionAdapter):
 
             num_experts (Optional[int]): If provided and len(`sub_adapters`) == 1, clone the given single
                 sub_adapters `num_experts` times to get all sub_adapters.
+
+        Keyword Args:
+            output_space (Space): See parent class.
         """
+        output_space = kwargs.pop("output_space")
         self.num_experts = (num_experts or len(sub_adapters))
         super().__init__(output_space=output_space, **kwargs)
 
@@ -46,7 +51,8 @@ class MixtureDistributionAdapter(DistributionAdapter):
         else:
             for i, s in enumerate(sub_adapters):
                 self.sub_adapters.append(DistributionAdapter.make(
-                    {"type": s, "output_space": output_space} if isinstance(s, str) else s)
+                    {"type": s, "output_space": output_space} if isinstance(s, str) else
+                    default_dict(s, dict(output_space=output_space)))
                 )
 
     def get_units_and_shape(self):

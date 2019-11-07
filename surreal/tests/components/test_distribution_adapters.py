@@ -119,7 +119,8 @@ class TestDistributionAdapters(unittest.TestCase):
         output_space = Float(shape=(3,), main_axes="B")
 
         adapter = MixtureDistributionAdapter(
-            output_space, "normal-distribution-adapter", "beta-distribution-adapter",
+            "normal-distribution-adapter", "beta-distribution-adapter",
+            output_space=output_space,
             activation="relu"  # Don't do this in real life! This is just to test.
         )
         batch_size = 2

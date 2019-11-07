@@ -34,7 +34,7 @@ class SurrealObsoletedError(SurrealError):
             new_value (str): The new (replacement) value that should have been used instead.
         """
         msg = "The {} '{}' you are using has been obsoleted! Use '{}' instead.".format(type_, old_value, new_value)
-        super(SurrealObsoletedError, self).__init__(msg)
+        super().__init__(msg)
 
 
 class SurrealSpaceError(SurrealError):
@@ -48,7 +48,7 @@ class SurrealSpaceError(SurrealError):
             input_arg (Optional[str]): An optional API-method input arg name.
             msg (Optional[str]): The error message.
         """
-        super(SurrealSpaceError, self).__init__(msg)
+        super().__init__(msg)
         self.space = space
 
 

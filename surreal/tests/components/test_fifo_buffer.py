@@ -18,7 +18,6 @@ import unittest
 
 from surreal.components.memories.fifo_buffer import FIFOBuffer
 from surreal.spaces import Dict
-from surreal.tests.test_util import check
 
 
 class TestFIFOBufferMemory(unittest.TestCase):

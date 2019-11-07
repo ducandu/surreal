@@ -33,7 +33,7 @@ class SquashedNormal(Distribution):
             low (float): The lowest possible sampling value (excluding this value).
             high (float): The highest possible sampling value (excluding this value).
         """
-        super(SquashedNormal, self).__init__()
+        super().__init__()
 
         assert np.all(np.less(low, high))
         self.low = low

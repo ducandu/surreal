@@ -76,7 +76,7 @@ class OpenAIGymEnv(LocalEnv):
         if not isinstance(state_space, Float):
             force_float32 = False
 
-        super(OpenAIGymEnv, self).__init__(
+        super().__init__(
             actors=actors, num_cores=num_cores,
             state_space=state_space, action_space=self.translate_space(self.dummy_env.action_space),
             process_class=OpenAIGymEnvProcess,

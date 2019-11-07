@@ -30,7 +30,7 @@ class GrayScale(Preprocessor):
         Args:
             keepdims (bool): Whether to keep the color-depth rank in the pre-processed tensor (default: False).
         """
-        super(GrayScale, self).__init__()
+        super().__init__()
 
         # Whether to keep the last rank with dim=1.
         self.keepdims = keepdims

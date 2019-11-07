@@ -43,7 +43,7 @@ class VariationalAutoEncoder(NeuralNetwork):
             decoder_network_spec (Union[dict,NeuralNetwork]): Specification dict to construct a decoder
                 NeuralNetwork object from or a NeuralNetwork Component directly.
         """
-        super(VariationalAutoEncoder, self).__init__(scope="variational-auto-encoder", **kwargs)
+        super().__init__(scope="variational-auto-encoder", **kwargs)
 
         self.z_units = z_units
 

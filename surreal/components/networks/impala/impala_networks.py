@@ -45,7 +45,7 @@ class IMPALANetwork(NeuralNetwork):
         """
         # 2 outputs due to LSTMLayer at the end.
         # TODO: Try to automate counting the outputs (should be easy as it's the len of the return tuple of `call`).
-        super(IMPALANetwork, self).__init__(num_outputs=2, scope=scope, **kwargs)
+        super().__init__(num_outputs=2, scope=scope, **kwargs)
 
         self.worker_sample_size = worker_sample_size
 

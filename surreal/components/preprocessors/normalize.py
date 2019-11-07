@@ -32,7 +32,7 @@ class Normalize(Preprocessor):
         epsilon is a very small constant number (to avoid dividing by 0).
     """
     def __init__(self, axes=-1):
-        super(Normalize, self).__init__()
+        super().__init__()
         self.axes = force_list(axes)
 
     def call(self, inputs):

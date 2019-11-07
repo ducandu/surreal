@@ -30,7 +30,7 @@ class Beta(Distribution):
 
     """
     def __init__(self, low=0.0, high=1.0):
-        super(Beta, self).__init__()
+        super().__init__()
 
         self.low = low
         self.high = high
@@ -53,7 +53,7 @@ class Beta(Distribution):
 
     def _log_prob(self, distribution, values):
         raw_values = self._unsquash(values)
-        return super(Beta, self)._log_prob(distribution, raw_values)
+        return super()._log_prob(distribution, raw_values)
 
     def _squash(self, raw_values):
         return raw_values * (self.high - self.low) + self.low

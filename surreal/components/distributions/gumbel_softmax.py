@@ -39,7 +39,7 @@ class GumbelSoftmax(Distribution):
                 a categorical random variable. For high temperatures, the expected value approaches a uniform
                 distribution.
         """
-        super(GumbelSoftmax, self).__init__()
+        super().__init__()
         self.temperature = temperature
 
     def parameterize_distribution(self, parameters):

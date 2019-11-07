@@ -160,7 +160,7 @@ class GridWorld(LocalEnv):
             forward=Int(3), turn=Int(3), jump=(Int(2) if action_type == "ftj" else Bool())
         ))
         # Call super.
-        super(GridWorld, self).__init__(
+        super().__init__(
             actors=actors, num_cores=num_cores,
             state_space=state_space, action_space=action_space,
             process_class=GridWorldEnvProcess,

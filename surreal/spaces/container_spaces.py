@@ -54,10 +54,12 @@ class Dict(ContainerSpace, dict):
         if spec is None:
             spec = kwargs
 
+        is_generator = type(spec).__name__ == "generator"
+
         ContainerSpace.__init__(self, main_axes=main_axes, value=value)
 
         # `spec` could be a dict or a generator (when using tf.nest to map over a Dict).
-        for key, value in (spec.items() if type(spec).__name__ != "generator" else spec):
+        for key, value in (spec.items() if not is_generator else spec):
             # Keys must be strings.
             if not isinstance(key, str):
                 raise SurrealError("No non-str keys allowed in a Dict-Space!")
@@ -92,14 +94,14 @@ class Dict(ContainerSpace, dict):
         dict.__init__(self, space_dict)
 
     def _add_main_axis(self, name, position=-1, dimension=None):
-        super(Dict, self)._add_main_axis(name, position, dimension)
+        super()._add_main_axis(name, position, dimension)
         if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
                               self.do_not_overwrite_items_extra_ranks is False):
             for v in self.values():
                 v._add_main_axis(name, position, dimension)
 
     def _remove_main_axis(self, name):
-        super(Dict, self)._remove_main_axis(name)
+        super()._remove_main_axis(name)
         if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
                               self.do_not_overwrite_items_extra_ranks is False):
             for v in self.values():
@@ -240,14 +242,14 @@ class Tuple(ContainerSpace, tuple):
             c.parent = self
 
     def _add_main_axis(self, name, position=-1, dimension=None):
-        super(Tuple, self)._add_main_axis(name, position, dimension)
+        super()._add_main_axis(name, position, dimension)
         if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
                               self.do_not_overwrite_items_extra_ranks is False):
             for v in self:
                 v._add_main_axis(name, position, dimension)
 
     def _remove_main_axis(self, name):
-        super(Tuple, self)._remove_main_axis(name)
+        super()._remove_main_axis(name)
         if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
                               self.do_not_overwrite_items_extra_ranks is False):
             for v in self:

@@ -45,7 +45,7 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
             dtype (np.type): The data type (as numpy type) for this Space.
                 Allowed are: np.int8,16,32,64, np.float16,32,64 and np.bool_.
         """
-        super(PrimitiveSpace, self).__init__(main_axes=main_axes)
+        super().__init__(main_axes=main_axes)
 
         self.dtype = dtype
 
@@ -117,7 +117,7 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
 
     @property
     def structure(self):
-        return 0
+        return self
 
     @property
     def bounds(self):
@@ -218,7 +218,7 @@ class Float(PrimitiveSpace):
         dtype = convert_dtype(dtype, "np")
         assert dtype in [np.float16, np.float32, np.float64], "ERROR: Float does not allow dtype '{}'!".format(dtype)
 
-        super(Float, self).__init__(low=low, high=high, shape=shape, dtype=dtype, **kwargs)
+        super().__init__(low=low, high=high, shape=shape, dtype=dtype, **kwargs)
 
         if self.low.shape == () and self.low == float("-inf") and self.high.shape == () and self.high == float("inf"):
             self.unbounded = True
@@ -267,7 +267,7 @@ class Int(PrimitiveSpace):
         assert dtype in [np.int16, np.int32, np.int64, np.uint8], \
             "ERROR: Int does not allow dtype '{}'!".format(dtype)
 
-        super(Int, self).__init__(low=low, high=high, shape=shape, dtype=dtype, **kwargs)
+        super().__init__(low=low, high=high, shape=shape, dtype=dtype, **kwargs)
 
         self.num_categories = None if self.global_bounds is False else self.global_bounds[1]
 
@@ -311,7 +311,7 @@ class Int(PrimitiveSpace):
         # If int: Check for int type in given sample.
         if not np.equal(np.mod(sample, 1), 0).all():
             return False
-        return super(Int, self).contains(sample)
+        return super().contains(sample)
 
     def __repr__(self):
         return "{}({}shape={}{}; dtype={})".format(
@@ -323,7 +323,7 @@ class Int(PrimitiveSpace):
 
 class Bool(PrimitiveSpace):
     def __init__(self, shape=None, **kwargs):
-        super(Bool, self).__init__(low=False, high=True, shape=shape, dtype=np.bool_, **kwargs)
+        super().__init__(low=False, high=True, shape=shape, dtype=np.bool_, **kwargs)
 
     def sample(self, size=None, fill_value=None, **kwargs):
         shape = self._get_np_shape(size)
@@ -358,7 +358,7 @@ class Text(PrimitiveSpace):
             shape (tuple): The shape of this space.
         """
         # Set both low/high to 0 (make no sense for text).
-        super(Text, self).__init__(low=0, high=0, **kwargs)
+        super().__init__(low=0, high=0, **kwargs)
 
         # Set dtype to numpy's unicode type.
         self.dtype = np.unicode_

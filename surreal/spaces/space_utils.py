@@ -75,22 +75,25 @@ def get_space_from_data(data, num_categories=None, main_axes=None):
     Returns:
         Space: The inferred Space object.
     """
-    # a Dict
-    if isinstance(data, dict):  # DataOpDict
+    # Dict.
+    if isinstance(data, dict):
         spec = {}
         for key, value in data.items():
-            # Special case for IntBoxes:
+
+            # OBSOLETE THIS! Special case for Ints:
             # If another key exists, with the name: `_num_[key]` -> take num_categories from that key's value.
-            if key[:5] == "_num_":
-                continue
-            num_categories = data.get("_num_{}".format(key))
+            #if key[:5] == "_num_":
+            #    continue
+            #num_categories = data.get("_num_{}".format(key))
+
+            num_categories = num_categories.get(key, None) if isinstance(num_categories, dict) else num_categories
             spec[key] = get_space_from_data(value, num_categories=num_categories, main_axes=main_axes)
             # Return
             if spec[key] == 0:
                 return 0
         return Dict(spec, main_axes=main_axes)
-    # a Tuple
-    elif isinstance(data, tuple):  # DataOpTuple
+    # Tuple.
+    elif isinstance(data, tuple):
         spec = []
         for i in data:
             space = get_space_from_data(i, main_axes=main_axes)
@@ -98,21 +101,27 @@ def get_space_from_data(data, num_categories=None, main_axes=None):
                 return 0
             spec.append(space)
         return Tuple(spec, main_axes=main_axes)
-    # primitive Space -> infer from data dtype and shape
+    # Primitive Space -> Infer from data dtype and shape.
     else:
-        int_high = {"high": num_categories} if num_categories is not None else {}
-        # Op itself is a single value, simple python type.
-        if isinstance(data, (bool, int, float)):
+        # `data` itself is a single value, simple python type.
+        if isinstance(data, int):
+            int_high = {"high": num_categories} if num_categories is not None else {}
             return PrimitiveSpace.make(spec=type(data), shape=(), **int_high)
+        elif isinstance(data, (bool, float)):
+            return PrimitiveSpace.make(spec=type(data), shape=())
         elif isinstance(data, str):
-            raise SurrealError("Cannot derive Space from non-allowed data ({})!".format(data))
+            raise SurrealError("Cannot derive Space from str data ({})!".format(data))
         # A single numpy array.
         elif isinstance(data, (np.ndarray, tf.Tensor)):
+            dtype = convert_dtype(data.dtype, "np")
+            int_high = {"high": num_categories} if num_categories is not None and \
+                dtype in [np.uint8, np.int16, np.int32, np.int64] else {}
             # Must subtract main_axes from beginning of data.shape.
             shape = tuple(data.shape[len(main_axes or []):])
             return PrimitiveSpace.make(
-                spec=convert_dtype(data.dtype, "np"), shape=shape, main_axes=main_axes, **int_high
+                spec=dtype, shape=shape, main_axes=main_axes, **int_high
             )
+        # Try inferring the Space from a python list.
         elif isinstance(data, list):
             return try_space_inference_from_list(data)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).

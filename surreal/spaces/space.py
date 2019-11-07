@@ -44,7 +44,7 @@ class Space(Makeable, metaclass=ABCMeta):
                 dimension of the axis, e.g. [("B", 500), "T"] would create a Space with batch size 500 and a time
                 axis of unknown dimension.
         """
-        super(Space, self).__init__()
+        super().__init__()
 
         #self.id = self.get_id()
 
@@ -251,6 +251,9 @@ class Space(Makeable, metaclass=ABCMeta):
         """
         cp = self.copy()
         if main_axes is not None:
+            # If `main_axes` is already taken from another Space.
+            if isinstance(main_axes, OrderedDict):
+                main_axes = list(main_axes.items())
             for main_axis in force_list(main_axes):
                 if isinstance(main_axis, (tuple, list)):
                     cp._add_main_axis(main_axis[0], position=-1, dimension=main_axis[1])
@@ -266,7 +269,7 @@ class Space(Makeable, metaclass=ABCMeta):
             Space: The deepcopy of this Space, but without any main axis.
         """
         cp = self.copy()
-        if hasattr(self, "axes"):
+        if hasattr(self, "main_axes"):
             for axis in self.main_axes:
                 cp._remove_main_axis(axis)
         return cp

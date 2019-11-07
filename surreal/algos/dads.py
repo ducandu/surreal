@@ -16,10 +16,10 @@
 import tensorflow as tf
 
 from surreal.algos.rl_algo import RLAlgo
-from surreal.algos.sac import SAC
-from surreal.components import FIFOBuffer, LossFunction, Network, Normal, Optimizer, Preprocessor
+from surreal.algos.sac import SAC, SACConfig
+from surreal.components import FIFOBuffer, NegLogLikelihoodLoss, Network, MixtureDistribution, Optimizer, Preprocessor
 from surreal.config import AlgoConfig
-from surreal.spaces import Dict, Float, Space
+from surreal.spaces import Dict, Float, Int, Space
 
 
 class DADS(RLAlgo):  # He, Hz, Hp, R, K, C, γ, L
@@ -36,35 +36,49 @@ class DADS(RLAlgo):  # He, Hz, Hp, R, K, C, γ, L
 
         self.preprocessor = Preprocessor.make(config.preprocessor)
         self.s = self.preprocessor(Space.make(config.state_space).with_batch())  # preprocessed states
-        self.a  = Space.make(config.action_space).with_batch()  # actions (a)
-        self.ri = Float(main_axes=[("Episode Horizon", config.He)])  # intrinsic rewards
-        self.z = Float(-1.0, 1.0, shape=(config.n,), main_axes=["B", ("T", config.Hp)])  # skill vectors
-        #self.mu = Float(-1.0, 1.0, main_axes=[("Planning Horizon", config.Hp)])  # mean values
-
-        self.pi = Network.make(input_space=Dict(dict(s=self.s, z=self.z)), output_space=self.a, **config.policy_network)
-        self.q = Network(input_space=Dict(dict(s=self.s, z=self.z)), output_space=self.s, distributions=True)  # Output distribution over s' Space.
-        self.B = FIFOBuffer(Dict(dict(s=self.s, z=self.z, a=self.a, t=bool)), config.memory_capacity,
+        self.a = Space.make(config.action_space).with_batch()  # actions (a)
+        self.ri = Float(main_axes=[("Episode Horizon", config.episode_horizon)])  # intrinsic rewards in He
+        self.z = Float(-1.0, 1.0, shape=(config.dim_skill_vectors,), main_axes="B") if config.discrete_skills is False \
+            else Int(config.dim_skill_vectors, main_axes="B")
+        self.s_and_z = Dict(dict(s=self.s, z=self.z), main_axes="B")
+        self.pi = Network.make(input_space=self.s_and_z, output_space=self.a, **config.policy_network)
+        self.q = Network.make(input_space=self.s_and_z, output_space=self.s,
+                              distributions=dict(type="mixture", num_experts=config.num_q_experts), **config.q_network)
+        self.B = FIFOBuffer(Dict(dict(s=self.s, z=self.z, a=self.a, t=bool)), config.episode_buffer_capacity,
                             when_full=self.event_buffer_full, next_record_setup=dict(s="s_"))
-        self.SAC = SAC(config=config.sac, state_space=Tuple(env.state_space, z), action_space=env.action_space, policy_network=self.pi, memory=None)
-        self.q_optimizer = Optimizer.make(config.optimizer)  # supervised model optimizer
-        self.Lsup = DADSLoss()  # TODO: specify more
-        #N = Normal(mean=μ)  # use standard covariance matrix
+        self.SAC = SAC(config=SACConfig.make(config.sac_config), name="SAC-level0")  # Low-level SAC.
+        self.q_optimizer = Optimizer.make(config.supervised_optimizer)  # supervised model optimizer
+        self.Lsup = NegLogLikelihoodLoss(distribution=MixtureDistribution(num_experts=config.num_q_experts))
 
-    def update(self, batch=None):
-        # Update the time-percentage value.
-        #time_percentage = env.time_step / max_time_steps
-        # Get batch from buffer and clear the buffer.
-        if batch is None:
-            batch = self.B.flush()
+    def update(self, samples, time_percentage):
+        parameters = self.q(dict(s=samples["s"], z=samples["z"]), parameters_only=True)
+
         # Update for K1 iterations on same batch.
-        self.optimizer.optimize(self.Lsup(batch), steps=self.config.K1, time_percentage=time_percentage)
+        weights = self.q.get_weights(as_ref=True)
+        s_ = samples["s_"] if self.config.q_predicts_states_diff is False else \
+            tf.nest.map_structure(lambda s, s_: s_ - s, samples["s"], samples["s_"])
+        for _ in range(self.config.num_steps_per_supervised_update):
+            loss = self.Lsup(parameters, s_)
+            self.q_optimizer.apply_gradients(loss, weights, time_percentage=time_percentage)
+
         # Calculate intrinsic rewards.
-        # TODO: according to paper, batch[z] should be part of the sum in the denominator.
-        ri = tf.math.log(
-            self.q(dict(a=batch["s"], z=batch["z"])) / tf.reduce_sum(self.q(dict(s=batch["s"], z=self.z.sample(L)))
-        ) + tf.math.log(L)
-        # Update RL-algo's policy (same as π) from our batch.
-        SAC.update((batch["s"], batch["z"]), batch["a"], ri, batch["s'"], batch["t"])
+        # Pull a batch of zs of size batch * (L - 1) (b/c 1 batch is the `z` of the sample (numerator's z)).
+        batch_size = len(samples["s"])
+        zs = tf.concat([samples["z"], self.z.sample(batch_size * (self.config.num_denominator_samples_for_ri - 1))])
+        s = tf.nest.map_structure(lambda s: tf.tile(s, [self.config.num_denominator_samples_for_ri] + ([1] * (len(s.shape) - 1))), samples["s"])
+        s_ = tf.nest.map_structure(lambda s: tf.tile(s, [self.config.num_denominator_samples_for_ri] + ([1] * (len(s.shape) - 1))), samples["s_"])
+        # Single (efficient) forward pass yielding s' likelihoods.
+        all_s__llhs = tf.stack(tf.split(self.q(dict(s=s, z=zs), s_, likelihood=True), self.config.num_denominator_samples_for_ri))
+        r = tf.math.log(all_s__llhs[0] / tf.reduce_sum(all_s__llhs, axis=0)) + \
+            tf.math.log(self.config.num_denominator_samples_for_ri)
+        # Update RL-algo's policy (same as π) from our batch (using intrinsic rewards).
+        self.SAC.update(
+            dict(s=samples["s"], z=samples["z"], a=samples["a"], r=r, s_=samples["s_"], t=samples["t"]), time_percentage
+        )
+
+    # When buffer full -> Update transition model q.
+    def event_buffer_full(self):
+        self.update(self.B.flush(), time_percentage=time_percentage)
 
     def event_episode_starts(self, env, time_steps, batch_position, s):
         if self.inference is False:
@@ -84,24 +98,24 @@ class DADS(RLAlgo):  # He, Hz, Hp, R, K, C, γ, L
                 zi = self.N.sample()   # ?? ~ N[he/Hz]
                 hz = 0  # reset counter
             hz += 1
+        else:
+            for i in batch_positions:
+                if self.hz[i] >= self.config.skill_horizon:
+                    self.z.value[i] = self.z.sample()
 
         # Add single(!) szas't-tuple to buffer.
         if actor_time_steps > 0:
             self.B.add_records(dict(s=self.s.value, z=self.z.value, a=self.a.value, t=t, s_=s_))
 
         # Query policy for an action.
-        a_ = self.pi(dict(s=s_, z=zi))
+        a_ = self.pi(dict(s=s_, z=self.z.value))
 
         # Send the new action back to the env.
         env.act(a_)
 
         # Store action and state for next tick.
-        self.s.assign(s)
+        self.s.assign(s_)
         self.a.assign(a_)
-
-    # When buffer full -> learn transition model q.
-    def event_buffer_full(self):  # TODO: how do we link this to B
-        self.update(self.B.flush())
 
     #def plan(self, s0):
     #    for j in range(R):
@@ -117,101 +131,87 @@ class DADS(RLAlgo):  # He, Hz, Hp, R, K, C, γ, L
     #    # return best next plan (z).
 
 
-class DADSLoss(LossFunction):
-    def call(self):
-        return 0.0
-
-
 class DADSConfig(AlgoConfig):
     """
     Config object for a DADS Algo.
     """
     def __init__(
             self, *,
-            policy_network, state_space, action_space,
+            policy_network, q_network,
+            state_space, action_space,
+            sac_config,
+            num_q_experts=4,  # 4 used in paper.
+            q_predicts_states_diff=False,
+            num_denominator_samples_for_ri=250,  # 50-500 used in paper
+            dim_skill_vectors=10, discrete_skills=False, episode_horizon=200, skill_horizon=None,
             preprocessor=None,
             supervised_optimizer=None,
-            episode_buffer_length=200,
+            num_steps_per_supervised_update=1,
+            episode_buffer_capacity=200,
             summaries=None
     ):
         """
         Args:
             policy_network (Network): The policy-network (pi) to use as a function approximator for the learnt policy.
+
+            q_network (Network): The dynamics-network (q) to use as a function approximator for the learnt env
+                dynamics. NOTE: Not to be confused with a Q-learning Q-net! In the paper, the dynamics function is
+                called `q`, hence the same nomenclature here.
+
             state_space (Space): The state/observation Space.
             action_space (Space): The action Space.
+            sac_config (SACConfig): The config for the internal SAC-Algo used to learn the skills using intrinsic rewards.
+
+            num_q_experts (int): The number of experts used in the Mixture distribution output bz the q-network to
+                predict the next state (s') given s (state) and z (skill vector).
+
+            q_predicts_states_diff (bool): Whether the q-network predicts the different between s and s' rather than
+                s' directly. Default: False.
+
+            num_denominator_samples_for_ri (int): The number of samples to calculate for the denominator of the
+                intrinsic reward function (`L` in the paper).
+
+            dim_skill_vectors (int): The number of dimensions of the learnt skill vectors.
+            discrete_skills (bool): Whether skill vectors are discrete (one-hot).
+            episode_horizon (int): The episode horizon (He) to move within, when gathering episode samples.
+
+            skill_horizon (Optional[int]): The horizon for which to use one skill vector (before sampling a new one).
+                Default: Use value of `episode_horizon`.
+
             preprocessor (Preprocessor): The preprocessor (if any) to use.
             supervised_optimizer (Optimizer): The optimizer to use for the supervised (q) model learning task.
+
+            num_steps_per_supervised_update (int): The number of gradient descent iterations per update
+                (each iteration uses the same environment samples).
+
+            episode_buffer_capacity (int): The capacity of the episode (experience) FIFOBuffer.
 
             summaries (List[any]): A list of summaries to produce if `UseTfSummaries` in debug.json is true.
                 In the simplest case, this is a list of `self.[...]`-property names of the SAC object that should
                 be tracked after each tick.
         """
-        # If one not given, use a copy of the other NN and make sure the given network is not a done Keras object yet.
-        if policy_network is None:
-            assert isinstance(q_network, (dict, list, tuple))
-            policy_network = q_network
-        elif q_network is None:
-            assert isinstance(policy_network, (dict, list, tuple))
-            q_network = policy_network
-
         # Clean up network configs to be passable as **kwargs to `make`.
         # Networks are given as sequential config or directly as Keras objects -> prepend "network" key to spec.
-        if isinstance(q_network, (list, tuple, tf.keras.models.Model, tf.keras.layers.Layer)):
-            q_network = dict(network=q_network)
         if isinstance(policy_network, (list, tuple, tf.keras.models.Model, tf.keras.layers.Layer)):
             policy_network = dict(network=policy_network)
+        if isinstance(q_network, (list, tuple, tf.keras.models.Model, tf.keras.layers.Layer)):
+            q_network = dict(network=q_network)
 
-        # Make sure our optimizers are defined ok.
-        if default_optimizer is None:
-            assert q_optimizer and policy_optimizer and alpha_optimizer
-        if q_optimizer and policy_optimizer and alpha_optimizer:
-            if default_optimizer:
-                logging.warning(
-                    "***WARNING: `default_optimizer` defined, but has no effect b/c `q_optimizer`, `policy_optimizer` "
-                    "and `alpha_optimizer` are already provided!"
-                )
-        if q_optimizer is None:
-            q_optimizer = default_optimizer
-        if policy_optimizer is None:
-            policy_optimizer = default_optimizer
-        if alpha_optimizer is None:
-            alpha_optimizer = default_optimizer
-
-        assert time_unit in ["time_step", "env_tick"]
-
-        # Special value for start-train parameter -> When memory full.
-        if update_after == "when-memory-full":
-            update_after = memory_capacity
-        # Special value for start-train parameter -> When memory has enough records to pull a batch.
-        elif update_after == "when-memory-ready":
-            update_after = memory_batch_size
-        assert isinstance(update_after, int)
-
-        # Make sure sync-freq >= update-freq:
-        assert sync_frequency >= update_frequency
-        # Make sure memory batch size is less than capacity.
-        assert memory_batch_size <= memory_capacity
-
-        # Derive memory_spec for SAC c'tor.
-        # If PR -> Check that alpha is not 0.0.
-        if use_prioritized_replay is True:
-            if memory_alpha == 0.0:
-                logging.warning(
-                    "***WARNING: `use_prioritized_replay` is True, but memory's alpha is set to 0.0 (which implies no "
-                    "prioritization whatsoever)!"
-                )
-            memory_spec = dict(type="prioritized-replay-buffer", alpha=memory_alpha, beta=memory_beta)
-        else:
-            memory_spec = dict(type="replay-buffer")
-        memory_spec["capacity"] = memory_capacity
-        memory_spec["next_record_setup"] = dict(s="s_",
-                                                n_step=n_step)  # setup: s' is next-record of s (after n-steps).
-
-        # Make action space.
+        # Make state/action space.
+        state_space = Space.make(state_space)
         action_space = Space.make(action_space)
+
+        # Fix SAC config, add correct state- and action-spaces.
+        sac_config["state_space"] = Dict(s=state_space, z=Float(-1.0, 1.0, shape=(dim_skill_vectors,)))
+        sac_config["action_space"] = action_space
+        sac_config["memory_capacity"] = 1  # Use no memory. Updates are done from DADS' own buffer.
+        sac_config["memory_batch_size"] = 1
+        sac_config["policy_network"] = policy_network  # Share policy network between DADS and underlying learning SAC.
+
+        if skill_horizon is None:
+            skill_horizon = episode_horizon
 
         super().__init__(locals())  # Config will store all c'tor variables automatically.
 
         # Keep track of which time-step stuff happened. Only important for by-time-step frequencies.
         self.last_update = 0
-        self.last_sync = 0

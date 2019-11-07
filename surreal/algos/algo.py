@@ -34,7 +34,7 @@ class Algo(Makeable, metaclass=ABCMeta):
         super().__init__()
 
         self.config = config
-        self.name = name or config.name
+        self.name = name or getattr(config, "name", "Algo")
 
         # Savable components (e.g. networks).
         self.savables = []

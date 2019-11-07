@@ -1,0 +1,82 @@
+{
+  "episode_buffer_capacity": 200,
+
+  "policy_network": [
+    {
+      "name": "dense",
+      "units": 128,
+      "activation": "tanh"
+    },
+    {
+      "name": "dense",
+      "units": 128,
+      "activation": "tanh"
+    }
+  ],
+  "q_network": [
+    {
+      "name": "dense",
+      "units": 256,
+      "activation": "tanh"
+    },
+    {
+      "name": "dense",
+      "units": 256,
+      "activation": "tanh"
+    }
+  ],
+  "num_q_experts": 4,
+  "num_denominator_samples_for_ri": 50,
+
+  "dim_skill_vectors": 5,
+  "discrete_skills": true,
+
+  "supervised_optimizer": {
+    "type": "adam",
+    "learning_rate": 0.0001
+  },
+
+  "num_steps_per_supervised_update": 1,
+
+  "episode_horizon": 200,
+  "skill_horizon": 200,
+
+  "sac_config": {
+    "gamma": 0.99,
+    "n_step": 2,
+
+    "initial_alpha": 0.1,
+    "gumbel_softmax_temperature": 0.2,
+
+    "num_q_networks": 1,
+    "q_network": [
+      {
+        "name": "dense",
+        "units": 128,
+        "activation": "tanh"
+      },
+      {
+        "name": "dense",
+        "units": 128,
+        "activation": "tanh"
+      }
+    ],
+
+    "default_optimizer": {
+      "type": "adam",
+      "learning_rate": 0.0001
+    },
+
+    "q_optimizer": {
+      "type": "adam",
+      "learning_rate": 0.005
+    },
+
+    "time_unit": "time_step",
+    "update_after": "when-memory-ready",
+    "update_frequency": 1,
+    "num_steps_per_update": 1,
+    "sync_frequency": 1,
+    "sync_tau": 0.005
+  }
+}

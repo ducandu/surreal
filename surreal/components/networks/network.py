@@ -17,7 +17,7 @@ import copy
 import inspect
 import tensorflow as tf
 
-from surreal.components.distribution_adapters.adapter_utils import get_adapter_type_from_distribution_type, \
+from surreal.components.distribution_adapters.adapter_utils import get_adapter_spec_from_distribution_spec, \
     get_distribution_spec_from_adapter
 from surreal.components.distributions.distribution import Distribution
 from surreal.components.distribution_adapters.distribution_adapter import DistributionAdapter
@@ -27,7 +27,7 @@ from surreal.spaces.space_utils import get_default_distribution_from_space
 from surreal.utils.errors import SurrealError
 from surreal.utils.keras import keras_from_spec
 from surreal.utils.nest import flatten_alongside
-from surreal.utils.util import complement_struct
+from surreal.utils.util import complement_struct, default_dict
 
 
 class Network(Model):
@@ -93,7 +93,7 @@ class Network(Model):
         self._create_adapters_and_distributions(output_space, adapters, distributions)
 
         # Input space given explicitly.
-        self.input_space = Space.make(input_space) if input_space is not None else None
+        self.input_space = Space.make(input_space).with_batch() if input_space is not None else None
         self.flat_input_space = None
         self.pre_concat_networks = []  # One per input component.
         if self.input_space is not None:
@@ -164,9 +164,12 @@ class Network(Model):
                 # Single distribution settings for all output components.
                 if generic_distribution_spec is not None:
                     settings = {} if generic_distribution_spec in ["default", True, False] else (generic_distribution_spec or {})
-                    dist_spec = get_default_distribution_from_space(output_component, **settings)
                 else:
                     settings = flat_distribution_spec[i] if isinstance(flat_distribution_spec[i], dict) else {}
+                # `distributions` could be simply a direct spec dict.
+                if (isinstance(settings, dict) and "type" in settings) or isinstance(settings, Distribution):
+                    dist_spec = settings
+                else:
                     dist_spec = get_default_distribution_from_space(output_component, **settings)
 
                 # No distribution.
@@ -187,7 +190,8 @@ class Network(Model):
                 # All other cases: Get adapter type from distribution spec
                 # (even if we don't use a distribution in the end).
                 else:
-                    da_spec["type"] = get_adapter_type_from_distribution_type(dist_spec["type"])
+                    default_dict(da_spec, get_adapter_spec_from_distribution_spec(dist_spec))
+
                 self.adapters.append(DistributionAdapter.make(da_spec))
 
             # da_spec is completely defined  -> Use it to get distribution.
@@ -204,10 +208,10 @@ class Network(Model):
             generic_pre_concat_spec_for_all_input_components = pre_concat_networks
         # Spec may be incomplete (add Nones to non-defined leafs).
         elif isinstance(pre_concat_networks, dict):
-            pre_concat_networks = complement_struct(pre_concat_networks, reference_struct=self.input_space)
+            pre_concat_networks = complement_struct(pre_concat_networks, reference_struct=self.input_space.structure)
         # No distributions whatsoever.
         elif not pre_concat_networks:
-            pre_concat_networks = complement_struct({}, reference_struct=self.input_space)
+            pre_concat_networks = complement_struct({}, reference_struct=self.input_space.structure)
         flat_pre_concat_nn_spec = flatten_alongside(pre_concat_networks, alongside=self.input_space)
 
         self.flat_input_space = tf.nest.flatten(self.input_space)
@@ -272,8 +276,6 @@ class Network(Model):
                     if distribution is not None else None
                     for i, distribution in enumerate(self.distributions)
                 ]
-                #if tfp_distributions[0]:
-                #    print("Temp={}".format(tf.math.exp(adapter_outputs[0][0]).numpy()))
                 sample = [
                     distribution._sample(tfp_distributions[i], deterministic=deterministic)
                     if distribution is not None else adapter_outputs[i]
@@ -303,7 +305,7 @@ class Network(Model):
                     return packed_sample
             # Values given -> Return probabilities/likelihoods or plain outputs for given values (if no distribution).
             else:
-                values = complement_struct(values, self.output_space, "_undef_")
+                values = complement_struct(values, self.output_space.structure, "_undef_")
                 flat_values = tf.nest.flatten(values)
                 combined_likelihood_return = None
                 for i, distribution in enumerate(self.distributions):

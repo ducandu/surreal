@@ -157,7 +157,7 @@ class IntrinsicCuriosityWorldOptionModel(SupervisedModel):
         if optimizer is None:
             optimizer = dict(type="adam", learning_rate=3e-4)
 
-        super(IntrinsicCuriosityWorldOptionModel, self).__init__(
+        super().__init__(
             supervised_predictor_spec=dict(
                 network_spec=predictor_network,
                 output_space=Dict({

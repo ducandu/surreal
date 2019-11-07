@@ -22,6 +22,7 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/algos/learning_up_to_1min/test_sac_short_tasks.py';
 
   # Test Algo functionality.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/algos/functionality/test_dads_functionality.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/algos/functionality/test_dqn2015_functionality.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/algos/functionality/test_dddqn_functionality.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/algos/functionality/test_sac_functionality.py';

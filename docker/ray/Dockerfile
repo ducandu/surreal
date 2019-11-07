@@ -4,6 +4,6 @@
 FROM ducandu/surreal:travis
 
 # Install ray.
-RUN pip3 install ray
+RUN pip3 install ray ray[debug] psutil
 
 CMD ["bash"]

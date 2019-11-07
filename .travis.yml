@@ -28,6 +28,7 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/algos/functionality/test_sac_functionality.py';
 
   # Test core lib.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/core/test_flatten_alongside.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /surreal && python -m pytest -s surreal/tests/core/test_spaces.py';
 
   # Test Components.

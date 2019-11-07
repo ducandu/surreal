@@ -9,7 +9,7 @@
 
 ### Incentives:
 Design a novel python+tf2.0 based deep reinforcement learning library for 
-"1d RL-algo coding | post-paper-comprehension".
+"1d RL-algo coding | full-paper-comprehension".
 This means the library allows users to code and implement any complex RL algorithm within 1 day, given that the paper 
 describing the algorithm has been thoroughly understood.
 
@@ -110,10 +110,10 @@ Running Atari experiments on a 24Gb machine with a memory that can keep 120k rec
 - **DQN2015** (deep Q-Networkin its 2015 Nature paper version) - [paper](https://www.nature.com/articles/nature14236)
 - **DDDQN** (double/dueling/n-step/prioritized-replay Q-learning) - papers: [double](https://arxiv.org/abs/1509.06461) [dueling](https://arxiv.org/abs/1511.06581) [n-step](https://arxiv.org/abs/1901.07510) [PR](https://arxiv.org/abs/1511.05952)
 - **SAC** (Soft Actor-Critic in its Feb 2019 version for continuous AND discrete(!) action spaces) - [paper](https://arxiv.org/abs/1812.05905)
-- *Coming up next:* **DADS** (Dynamics-Aware Unsupervised Discovery of Skills) - [paper](https://arxiv.org/abs/1907.01657)
+- *In testing, coming up next:* **DADS** (Dynamics-Aware Unsupervised Discovery of Skills) - [paper](https://arxiv.org/abs/1907.01657)
 
 
-<!--### Cite
+### Cite
 
 If you use Surreal in your research, please cite as follows:
 
@@ -125,4 +125,4 @@ If you use Surreal in your research, please cite as follows:
   year      = {2019},
   month     = oct,
 }
-```-->
+```

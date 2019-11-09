@@ -77,7 +77,7 @@ class DDDQN(RLAlgo):
 
         # Add now-complete sars't-tuple to memory (batched).
         if event.actor_time_steps > 0:
-            records = self.n_step(self.x.value, self.a.value, r, t, x_)
+            records = self.n_step(self.x.value, self.a.value, event.r, event.t, x_)
             if records:
                 self.memory.add_records(records)
 

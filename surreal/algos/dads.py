@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import numpy as np
 import tensorflow as tf
 
 from surreal.algos.rl_algo import RLAlgo
@@ -31,8 +32,8 @@ class DADS(RLAlgo):
     def __init__(self, config, name=None):
         super().__init__(config, name)
         self.inference = False  # True=planning mode. False="supervised+intrinsic-reward+model-learning" mode.
-        self.he = 0  # Current step within He (total episode horizon).
-        self.hz = 0  # Current step within Hz (repeat horizon for one selected skill)
+        self.he = None  # Current step within He (total episode horizon).
+        self.hz = None  # Current step within Hz (repeat horizon for one selected skill)
 
         self.preprocessor = Preprocessor.make(config.preprocessor)
         self.s = self.preprocessor(config.state_space.with_batch())  # preprocessed states
@@ -41,11 +42,12 @@ class DADS(RLAlgo):
         self.z = Float(-1.0, 1.0, shape=(config.dim_skill_vectors,), main_axes="B") if \
             config.discrete_skills is False else Int(config.dim_skill_vectors, main_axes="B")
         self.s_and_z = Dict(dict(s=self.s, z=self.z), main_axes="B")
-        self.pi = Network.make(input_space=self.s_and_z, output_space=self.a, **config.policy_network)
+        self.pi = Network.make(input_space=self.s_and_z, output_space=self.a, distributions=True,
+                               **config.policy_network)
         self.q = Network.make(input_space=self.s_and_z, output_space=self.s,
                               distributions=dict(type="mixture", num_experts=config.num_q_experts), **config.q_network)
         self.B = FIFOBuffer(Dict(dict(s=self.s, z=self.z, a=self.a, t=bool)), config.episode_buffer_capacity,
-                            when_full=self.event_buffer_full, next_record_setup=dict(s="s_"))
+                            next_record_setup=dict(s="s_"))
         self.SAC = SAC(config=config.sac_config, name="SAC-level0")  # Low-level SAC.
         self.q_optimizer = Optimizer.make(config.supervised_optimizer)  # supervised model optimizer
         self.Lsup = NegLogLikelihoodLoss(distribution=MixtureDistribution(num_experts=config.num_q_experts))
@@ -77,14 +79,12 @@ class DADS(RLAlgo):
             dict(s=samples["s"], z=samples["z"], a=samples["a"], r=r, s_=samples["s_"], t=samples["t"]), time_percentage
         )
 
-    # When buffer full -> Update transition model q.
-    def event_buffer_full(self, event):
-        self.update(self.B.flush(), time_percentage=event.actor_time_steps / (self.config.max_time_steps or event.env.max_time_steps))
-
     def event_episode_starts(self, event):
-        # Initialize z if this hasn't happened yet.
+        # Initialize z, hz, and he if this hasn't happened yet.
         if self.z.value is None:
             self.z.assign(self.z.zeros(len(event.actor_slots)))
+            self.hz = np.zeros(len(event.actor_slots), dtype=np.int32)
+            self.he = np.zeros(len(event.actor_slots), dtype=np.int32)
         # Sample new z at the trajectory's batch position.
         if self.inference is False:
             self.z.value[event.current_actor_slot] = self.z.sample()  # Sample a new skill from Space z and store it in z (assume uniform).
@@ -115,10 +115,13 @@ class DADS(RLAlgo):
 
         # Add single(!) szas't-tuple to buffer.
         if event.actor_time_steps > 0:
-            self.B.add_records(dict(s=self.s.value, z=self.z.value, a=self.a.value, t=event.t, s_=event.s_))
+            self.B.add_records(dict(s=self.s.value, z=self.z.value, a=self.a.value, t=event.t, s_=s_))
+            if self.B.size == self.B.capacity:
+                self.update(self.B.flush(), time_percentage=event.actor_time_steps /
+                                                            (self.config.max_time_steps or event.env.max_time_steps))
 
         # Query policy for an action.
-        a_ = self.pi(dict(s=event.s_, z=self.z.value))
+        a_ = self.pi(dict(s=s_, z=self.z.value)).numpy()
 
         # Send the new action back to the env.
         event.env.act(a_)
@@ -158,6 +161,7 @@ class DADSConfig(AlgoConfig):
             supervised_optimizer=None,
             num_steps_per_supervised_update=1,
             episode_buffer_capacity=200,
+            max_time_steps=None,
             summaries=None
     ):
         """
@@ -195,6 +199,9 @@ class DADSConfig(AlgoConfig):
                 (each iteration uses the same environment samples).
 
             episode_buffer_capacity (int): The capacity of the episode (experience) FIFOBuffer.
+
+            max_time_steps (Optional[int]): The maximum number of time steps (across all actors) to learn/update
+                the dynamics-(q)-model. If None, use a value given by the environment.
 
             summaries (List[any]): A list of summaries to produce if `UseTfSummaries` in debug.json is true.
                 In the simplest case, this is a list of `self.[...]`-property names of the SAC object that should

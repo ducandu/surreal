@@ -56,41 +56,42 @@ class Dict(ContainerSpace, dict):
 
         is_generator = type(spec).__name__ == "generator"
 
-        ContainerSpace.__init__(self, main_axes=main_axes, value=value)
-
         # `spec` could be a dict or a generator (when using tf.nest to map over a Dict).
-        for key, value in (spec.items() if not is_generator else spec):
+        for key, val in (spec.items() if not is_generator else spec):
             # Keys must be strings.
             if not isinstance(key, str):
                 raise SurrealError("No non-str keys allowed in a Dict-Space!")
 
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.
-            if isinstance(value, Space):
+            if isinstance(val, Space):
+                val.value = None
                 if self.do_not_overwrite_items_extra_ranks is True:
-                    space_dict[key] = value
+                    space_dict[key] = val
                 else:
-                    space_dict[key] = value.strip_axes().with_axes(main_axes=main_axes)
+                    space_dict[key] = val.strip_axes().with_axes(main_axes=main_axes)
             # Value is a list/tuple -> treat as Tuple space.
-            elif isinstance(value, (list, tuple)):
+            elif isinstance(val, (list, tuple)):
                 if self.do_not_overwrite_items_extra_ranks is True:
-                    space_dict[key] = Tuple(*value, do_not_overwrite_items_extra_ranks=True)
+                    space_dict[key] = Tuple(*val, do_not_overwrite_items_extra_ranks=True)
                 else:
-                    space_dict[key] = Tuple(*value, main_axes=main_axes)
+                    space_dict[key] = Tuple(*val, main_axes=main_axes)
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
-            elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
+            elif (isinstance(val, dict) and "type" in val) or not isinstance(val, dict):
                 if self.do_not_overwrite_items_extra_ranks is True:
-                    space_dict[key] = Space.make(value, do_not_overwrite_items_extra_ranks=True)
+                    space_dict[key] = Space.make(val, do_not_overwrite_items_extra_ranks=True)
                 else:
-                    space_dict[key] = Space.make(value, main_axes=main_axes)
+                    space_dict[key] = Space.make(val, main_axes=main_axes)
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
                 if self.do_not_overwrite_items_extra_ranks is True:
-                    space_dict[key] = Dict(value, do_not_overwrite_items_extra_ranks=True)
+                    space_dict[key] = Dict(val, do_not_overwrite_items_extra_ranks=True)
                 else:
-                    space_dict[key] = Dict(value, main_axes=main_axes)
+                    space_dict[key] = Dict(val, main_axes=main_axes)
             # Set the parent of the added Space to `self`.
             space_dict[key].parent = self
 
+        ContainerSpace.__init__(self, shape=tuple([self[key].shape for key in sorted(self.keys())]),
+                                main_axes=main_axes, value=value)
         dict.__init__(self, space_dict)
 
     def _add_main_axis(self, name, position=-1, dimension=None):
@@ -130,9 +131,9 @@ class Dict(ContainerSpace, dict):
                 return dict({key: self[key].force_batch(samples[key], horizontal=horizontal)[0]
                              for key in sorted(self.keys())}), batch_was_added
 
-    @property
-    def shape(self):
-        return tuple([self[key].shape for key in sorted(self.keys())])
+    #@property
+    #def shape(self):
+    #    return tuple([self[key].shape for key in sorted(self.keys())])
 
     def get_shape(self, include_main_axes=False, main_axis_value=None, with_category_rank=False):
         return tuple(
@@ -203,31 +204,32 @@ class Tuple(ContainerSpace, tuple):
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-list/tuple.
         list_ = []
-        for value in components:
+        for val in components:
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch-rank.
-            if isinstance(value, Space):
+            if isinstance(val, Space):
+                val.value = None
                 if do_not_overwrite_items_extra_ranks is True:
-                    list_.append(value)
+                    list_.append(val)
                 else:
-                    list_.append(value.strip_axes().with_axes(main_axes=main_axes))
+                    list_.append(val.strip_axes().with_axes(main_axes=main_axes))
             # Value is a list/tuple -> treat as Tuple space.
-            elif isinstance(value, (list, tuple)):
+            elif isinstance(val, (list, tuple)):
                 if do_not_overwrite_items_extra_ranks is True:
-                    list_.append(Tuple(*value, do_not_overwrite_items_extra_ranks=True))
+                    list_.append(Tuple(*val, do_not_overwrite_items_extra_ranks=True))
                 else:
-                    list_.append(Tuple(*value, main_axes=main_axes))
+                    list_.append(Tuple(*val, main_axes=main_axes))
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
-            elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
+            elif (isinstance(val, dict) and "type" in val) or not isinstance(val, dict):
                 if do_not_overwrite_items_extra_ranks is True:
-                    list_.append(Space.make(value, do_not_overwrite_items_extra_ranks=True))
+                    list_.append(Space.make(val, do_not_overwrite_items_extra_ranks=True))
                 else:
-                    list_.append(Space.make(value, main_axes=main_axes))
+                    list_.append(Space.make(val, main_axes=main_axes))
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
                 if do_not_overwrite_items_extra_ranks is True:
-                    list_.append(Dict(value, do_not_overwrite_items_extra_ranks=True))
+                    list_.append(Dict(val, do_not_overwrite_items_extra_ranks=True))
                 else:
-                    list_.append(Dict(value, main_axes=main_axes))
+                    list_.append(Dict(val, main_axes=main_axes))
 
         return tuple.__new__(cls, list_)
 
@@ -235,7 +237,7 @@ class Tuple(ContainerSpace, tuple):
         main_axes = kwargs.get("main_axes", None)
         self.do_not_overwrite_items_extra_ranks = kwargs.get("do_not_overwrite_items_extra_ranks", False)
 
-        super(Tuple, self).__init__(main_axes=main_axes)
+        super(Tuple, self).__init__(shape=tuple([c.shape for c in self]), main_axes=main_axes)
 
         # Set the parent of the added Space to `self`.
         for c in self:
@@ -258,9 +260,9 @@ class Tuple(ContainerSpace, tuple):
     def force_batch(self, samples, horizontal=False):
         return tuple([c.force_batch(samples[i])[0] for i, c in enumerate(self)])
 
-    @property
-    def shape(self):
-        return tuple([c.shape for c in self])
+    #@property
+    #def shape(self):
+    #    return tuple([c.shape for c in self])
 
     def get_shape(self, include_main_axes=False, main_axis_value=None, with_category_rank=False):
         return tuple(

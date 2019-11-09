@@ -20,14 +20,14 @@ import numpy as np
 import tensorflow as tf
 
 from surreal.spaces.space import Space
-from surreal.utils.util import convert_dtype, LARGE_INTEGER, get_shape
+from surreal.utils.util import convert_dtype, LARGE_INTEGER
 
 
 class PrimitiveSpace(Space, metaclass=ABCMeta):
     """
     A box in R^n with a shape tuple of len n. Each dimension may be bounded.
     """
-    def __init__(self, low, high, shape=None, dtype=np.float32, main_axes=None):
+    def __init__(self, low, high, shape=None, dtype=np.float32, main_axes=None, value=None):
         """
         Example constructions:
             PrimitiveSpace(0.0, 1.0) # low and high are given as scalars and shape is assumed to be ()
@@ -45,19 +45,17 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
             dtype (np.type): The data type (as numpy type) for this Space.
                 Allowed are: np.int8,16,32,64, np.float16,32,64 and np.bool_.
         """
-        super().__init__(main_axes=main_axes)
-
-        self.dtype = dtype
-
         # Determine the shape.
         if shape is None:
             if isinstance(low, (int, float, bool)):
-                self._shape = ()
+                shape = ()
             else:
-                self._shape = np.shape(low)
+                shape = np.shape(low)
         else:
             assert isinstance(shape, (tuple, list)), "ERROR: `shape` must be None or a tuple/list."
-            self._shape = tuple(shape)
+            shape = tuple(shape)
+
+        self.dtype = dtype
 
         # Determine the bounds.
         # False if bounds are individualized (each dimension has its own lower and upper bounds and we can get
@@ -67,7 +65,9 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
         self.low = np.array(low)
         self.high = np.array(high)
 
-        if self._shape == ():
+        super().__init__(shape=shape, value=value, main_axes=main_axes)
+
+        if self.shape == ():
             assert self.low.shape == (), "ERROR: If shape == (), `low` must be scalar!"
             assert self.high.shape == (), "ERROR: If shape == (), `high` must be scalar!"
             self.global_bounds = (self.low, self.high)
@@ -97,7 +97,7 @@ class PrimitiveSpace(Space, metaclass=ABCMeta):
         assert "T" not in self.main_axes, "ERROR: Cannot force a batch rank if Space `has_time_rank` is True!"
         # 0D (means: certainly no batch rank) or no extra rank given (compared to this Space), add a batch rank.
         if np.asarray(samples).ndim == 0 or \
-                np.asarray(samples).ndim == len(self.get_shape(with_batch_rank=False, with_time_rank=False)):
+                np.asarray(samples).ndim == len(self.get_shape(include_main_axes=False)):
             return np.array([samples]), True  # batch size=1
         # Samples is a list (whose len is interpreted as the batch size) -> return as np.array.
         elif isinstance(samples, list):
@@ -271,14 +271,14 @@ class Int(PrimitiveSpace):
 
         self.num_categories = None if self.global_bounds is False else self.global_bounds[1]
 
-    def get_shape(self, with_batch_rank=False, with_time_rank=False, **kwargs):
+    def get_shape(self, include_main_axes=False, main_axis_value=None, **kwargs):
         """
         Keyword Args:
             with_category_rank (bool): Whether to include a category rank for this Int (if all dims have equal
                 lower/upper bounds).
         """
         with_category_rank = kwargs.pop("with_category_rank", False)
-        shape = super(Int, self).get_shape(with_batch_rank=with_batch_rank, with_time_rank=with_time_rank, **kwargs)
+        shape = super(Int, self).get_shape(include_main_axes, main_axis_value, **kwargs)
         if with_category_rank is not False:
             return shape + ((self.num_categories,) if self.num_categories is not None else ())
         return shape
@@ -352,19 +352,15 @@ class Text(PrimitiveSpace):
     A text box in TXT^n where the shape means the number of text chunks in each dimension.
     A text chunk can consist of any number of words.
     """
-    def __init__(self, shape=(), **kwargs):
-        """
-        Args:
-            shape (tuple): The shape of this space.
-        """
+    def __init__(self, **kwargs):
         # Set both low/high to 0 (make no sense for text).
         super().__init__(low=0, high=0, **kwargs)
 
         # Set dtype to numpy's unicode type.
         self.dtype = np.unicode_
 
-        assert isinstance(shape, tuple), "ERROR: `shape` must be a tuple."
-        self._shape = shape
+        #assert isinstance(shape, tuple), "ERROR: `shape` must be a tuple."
+        #self._shape = shape
 
     def sample(self, size=None, fill_value=None, **kwargs):
         shape = self._get_np_shape(size)

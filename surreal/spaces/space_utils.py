@@ -227,7 +227,7 @@ def sanity_check_space(
         if (space.has_batch_rank is False and must_have_batch_rank is True) or \
                 (space.has_batch_rank is not False and must_have_batch_rank is False):
             # Last chance: Check for rank >= 2, that would be ok as well.
-            if must_have_batch_rank is True and len(space.get_shape(with_batch_rank=True)) >= 2:
+            if must_have_batch_rank is True and len(space.get_shape(main_axes="B")) >= 2:
                 pass
             # Something is wrong.
             elif space.has_batch_rank is not False:
@@ -245,7 +245,7 @@ def sanity_check_space(
         if (space.has_time_rank is False and must_have_time_rank is True) or \
                 (space.has_time_rank is not False and must_have_time_rank is False):
             # Last chance: Check for rank >= 3, that would be ok as well.
-            if must_have_time_rank is True and len(space.get_shape(with_batch_rank=True, with_time_rank=True)) >= 2:
+            if must_have_time_rank is True and len(space.get_shape(main_axes=["B", "T"])) >= 2:
                 pass
             # Something is wrong.
             elif space.has_time_rank is not False:

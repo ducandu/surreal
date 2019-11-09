@@ -33,10 +33,13 @@ class Space(Makeable, metaclass=ABCMeta):
     # Global unique Space ID.
     _ID = -1
 
-    def __init__(self, value=None, main_axes=None):
+    def __init__(self, shape=None, value=None, main_axes=None):
         """
         Args:
-            value (any): A value to directly assign to this Space.
+            shape (Optional[Tuple[]]):
+
+            value (any): A value to directly assign to this Space. Use "zeros" for all zeros initialization, "random",
+                for a random-sample initialization.
 
             main_axes (Optional[List[Str]]): A list of names of main axes for this Space in the correct order.
                 E.g. ["B", "T"] for adding a batch and a time rank.
@@ -46,9 +49,7 @@ class Space(Makeable, metaclass=ABCMeta):
         """
         super().__init__()
 
-        #self.id = self.get_id()
-
-        self._shape = None
+        self.shape = shape
 
         # Parent Space for usage in nested ContainerSpace structures.
         self.parent = None
@@ -70,16 +71,14 @@ class Space(Makeable, metaclass=ABCMeta):
 
         # Each space has an optional value, that can store data of that space.
         self.value = None
+        # Always double-check initial values if given.
         if value is not None:
-            self.assign(value, check=True)  # Always double-check initial values if given.
-
-    @property
-    def shape(self):
-        """
-        Returns:
-            tuple: The shape of this Space as a tuple. Without batch or time ranks.
-        """
-        return self._shape
+            if value == "zeros":
+                self.assign(self.sample(fill_value=0), check=True)
+            elif value == "random":
+                self.assign(self.sample(), check=True)
+            else:
+                self.assign(value, check=True)
 
     @abstractmethod
     def get_shape(self, include_main_axes=False, main_axis_value=None, **kwargs):
@@ -335,11 +334,14 @@ class Space(Makeable, metaclass=ABCMeta):
 
     def _add_main_axis(self, name, position=-1, dimension=None):
         """
-        Adds or removes a main_axis for this Space (and of all child Spaces in a ContainerSpace).
+        Adds a main_axis for this Space (and of all child Spaces in a ContainerSpace).
 
         Args:
             name (str): The name of the axis, e.g. "batch".
-            position (int): At which position (within the main-axes) shall we add this new one?
+
+            position (int): At which position (within the main-axes) shall we add this new one? Negative numbers will
+                add the new axis at the nth position before the end.
+
             dimension (Optional[int]): The exact dimension of this axis (or None for unspecified).
         """
         # Do not allow to insert a main axis within the value-body of the space. All main-axes must come at the
@@ -347,28 +349,30 @@ class Space(Makeable, metaclass=ABCMeta):
         assert position <= len(self.main_axes), \
             "ERROR: Main-axis of {} must be inserted within first {} positions.".format(self, len(self.main_axes))
 
-        new_shape = []
-        if hasattr(self, "value"):
-            new_shape = list(self.get_shape(include_main_axes=True))
+        #new_axis = name in self.main_axes
+        #new_shape = []
+        #if hasattr(self, "value"):
+        #    new_shape = list(self.get_shape(include_main_axes=True))
 
-        new_ordered_dict = OrderedDict()
-
+        new_main_axes = OrderedDict()
         for i, (key, value) in enumerate(self.main_axes.items()):
-            if i == position or (position == -1 and i == len(self.main_axes) - 1):
-                new_ordered_dict[name] = dimension or True
-                new_shape = new_shape[:i] + [dimension or 1] + new_shape[i:]
+            if i == position or (position < 0 and i == len(self.main_axes) + position):
+                new_main_axes[name] = dimension or True
+                #new_shape = new_shape[:i] + [dimension or 1] + new_shape[i:]
             # In case axis already exists, do not add twice or override with old dimension.
             if key != name:
-                new_ordered_dict[key] = value
-        # Special case, add to end.
+                new_main_axes[key] = value
+        # Special case, add to very end.
         if (position == -1 and len(self.main_axes) == 0) or position == len(self.main_axes):
-            new_ordered_dict[name] = dimension
-            new_shape.append(dimension or 1)
-        self.main_axes = new_ordered_dict
+            new_main_axes[name] = dimension or True
+            #if not new_axis:
+            #    new_shape.append(dimension or 1)
+        self.main_axes = new_main_axes
         # Recheck time-major flag.
         #self.time_major = True if "T" in self.main_axes and list(self.main_axes.keys()).index("T") == 0 else False
         # Change our value (add axis at given position).
         if hasattr(self, "value") and self.value is not None:
+            new_shape = list(self.get_shape(include_main_axes=True, main_axis_value=-1))
             self.value = np.reshape(self.value, newshape=new_shape)
 
     def _remove_main_axis(self, name):

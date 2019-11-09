@@ -25,6 +25,7 @@ import threading
 import time
 
 from surreal import PATH_EPISODE_LOGS
+from surreal.algos.rl_algo import RLAlgoEvent
 from surreal.debug import StoreEveryNthEpisode
 from surreal.makeable import Makeable
 from surreal.utils.util import SMALL_NUMBER
@@ -114,7 +115,7 @@ class Env(Makeable, metaclass=ABCMeta):
                 ret[algo_name] = [i]
             else:
                 ret[algo_name].append(i)
-        return ret
+        return {k: np.array(v) for k, v in ret.items()}
 
     def run(self, ticks=None, actor_time_steps=None, episodes=None, sync=True, render=None):
         """
@@ -176,6 +177,7 @@ class Env(Makeable, metaclass=ABCMeta):
                 # If episode ended, send new-episode event to algo.
                 for slot in actor_slots:
                     if self.terminal[slot]:
+                        event = RLAlgoEvent(self, actor_slots, self.time_steps_algos[algo_name], current_actor_slot=slot)
                         if tick > 0:
                             self.num_episodes += 1
                             #episode += 1
@@ -194,7 +196,7 @@ class Env(Makeable, metaclass=ABCMeta):
                             self.historic_episodes_lengths.append(self.episodes_time_steps[slot])
 
                             # Send `episode_ends` event.
-                            algo.event_episode_ends(self, self.time_steps_algos[algo_name], slot)
+                            algo.event_episode_ends(event)
                             self.summarize_episode(algo)
 
                             # Log stats sometimes.
@@ -223,20 +225,21 @@ class Env(Makeable, metaclass=ABCMeta):
                         self.episodes_returns[slot] = 0.0
 
                         # Send `episode_starts` event.
-                        algo.event_episode_starts(self, self.time_steps_algos[algo_name], slot, self.state[slot])
+                        algo.event_episode_starts(event)
                         #self.summarize(algo)
 
                 # Tick the algorithm passing self.
-                slots = np.array(actor_slots)
-
                 # TODO: This may become asynchronous in the future:
                 # TODO: Need to make sure that we do not expect `self.act` to be called by the algo within this tick.
-                algo.event_tick(self, self.time_steps_algos[algo_name], slots, self.reward[slots], self.terminal[slots],
-                                self.state[slots])
+                event = RLAlgoEvent(
+                    self, actor_slots, self.time_steps_algos[algo_name], r=self.reward[actor_slots],
+                    t=self.terminal[actor_slots], s_=self.state[actor_slots]
+                )
+                algo.event_tick(event)
                 self.summarize_tick(algo)
 
                 # Accumulate episode rewards.
-                self.episodes_returns[slots] += self.reward[slots]
+                self.episodes_returns[actor_slots] += self.reward[actor_slots]
 
                 # Time steps (all actors with this algo).
                 self.time_steps_algos[algo_name] += len(actor_slots)

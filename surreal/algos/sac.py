@@ -81,31 +81,31 @@ class SAC(RLAlgo):
             )
         return abs_td_errors
 
-    def event_episode_starts(self, env, time_steps, batch_position, s):
+    def event_episode_starts(self, event):
         # Reset Phi at beginning of each episode (only at given batch position).
-        self.preprocessor.reset(batch_position)
+        self.preprocessor.reset(event.current_actor_slot)
 
-    def event_tick(self, env, actor_time_steps, batch_positions, r, t, s_):
+    def event_tick(self, event):
         # Update time-percentage value (for decaying parameters, e.g. learning-rate).
-        time_percentage = actor_time_steps / (self.config.max_time_steps or env.max_time_steps)
+        time_percentage = event.actor_time_steps / (self.config.max_time_steps or event.env.max_time_steps)
 
         # Preprocess states.
-        s_ = self.preprocessor(s_)
+        s_ = self.preprocessor(event.s_)
 
         # Add now-complete sars't-tuple to memory (batched).
-        if actor_time_steps > 0:
-            records = self.n_step(self.s.value, self.a_soft.value, r, t, s_) if self.config.n_step > 1 else \
-                dict(s=self.s.value, a=self.a_soft.value, r=r, t=t, s_=s_)
+        if event.actor_time_steps > 0:
+            records = self.n_step(self.s.value, self.a_soft.value, event.r, event.t, event.s_) if \
+                self.config.n_step > 1 else dict(s=self.s.value, a=self.a_soft.value, r=event.r, t=event.t, s_=event.s_)
             if records:
                 self.memory.add_records(records)
 
         # Query policy for an action sample and send the new actions back to the env.
         a__soft_categorical = self.pi(s_)  # a_ is a tensor due to it being direct NN output.
         a_ = self.argmax_if_applicable(a__soft_categorical).numpy()
-        env.act(a_)
+        event.env.act(a_)
 
         # Every nth tick event -> Update all our networks, based on the losses (i iterations per update step).
-        if self.is_time_to("update", env.tick, actor_time_steps):
+        if self.is_time_to("update", event.env.tick, event.actor_time_steps):
             for _ in range(self.config.num_steps_per_update):
                 samples, indices = self.memory.get_records_with_indices(self.config.memory_batch_size)
                 abs_td_errors = self.update(samples, time_percentage)
@@ -114,7 +114,7 @@ class SAC(RLAlgo):
                     self.memory.update_records(indices, abs_td_errors)
 
         # Every mth tick event -> Synchronize target Q-net(s) using soft (tau) syncing.
-        if self.is_time_to("sync", env.tick, actor_time_steps, only_after=self.config.update_after):
+        if self.is_time_to("sync", event.env.tick, event.actor_time_steps, only_after=self.config.update_after):
             for i in range(self.config.num_q_networks):
                 self.Qt[i].sync_from(self.Q[i], tau=self.config.sync_tau)
 

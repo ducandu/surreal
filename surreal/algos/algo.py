@@ -24,7 +24,9 @@ from surreal.makeable import Makeable
 
 
 class Algo(Makeable, metaclass=ABCMeta):
-
+    """
+    Abstract base class for any algorithm. Supports loading and saving, (abstract) updating, a name, a config, etc..
+    """
     def __init__(self, config, name=None):
         """
         Args:

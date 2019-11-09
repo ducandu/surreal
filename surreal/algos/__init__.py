@@ -13,11 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 
-from surreal.algos.rl_algo import RLAlgo
-from surreal.algos.dqn2015 import DQN2015
-from surreal.algos.dddqn import DDDQN
+from surreal.algos.rl_algo import RLAlgo, RLAlgoEvent
+from surreal.algos.dads import DADS, DADSConfig
+from surreal.algos.dqn2015 import DQN2015, DQN2015Loss, DQN2015Config
+from surreal.algos.dddqn import DDDQN, DDDQNLoss, DDDQNConfig
+from surreal.algos.sac import SAC, SACLoss, SACConfig
 
 __all__ = [
-    "RLAlgo",
-    "DQN2015", "DDDQN"
+    "RLAlgo", "RLAlgoEvent",
+    "DADS", "DADSConfig",
+    "DQN2015", "DQN2015Loss", "DDDQNConfig",
+    "DDDQN", "DDDQNLoss", "DDDQNConfig",
+    "SAC", "SACLoss", "SACConfig"
 ]

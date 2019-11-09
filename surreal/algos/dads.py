@@ -22,7 +22,7 @@ from surreal.config import AlgoConfig
 from surreal.spaces import Dict, Float, Int, Space
 
 
-class DADS(RLAlgo):  # He, Hz, Hp, R, K, C, γ, L
+class DADS(RLAlgo):
     """
     The DADS algorithm.
     [1] Dynamics-Aware Unsupervised Discovery of Skills - A. Sharma∗, S. Gu, S. Levine, V. Kumar, K. Hausman - Google Brain 2019
@@ -35,25 +35,26 @@ class DADS(RLAlgo):  # He, Hz, Hp, R, K, C, γ, L
         self.hz = 0  # Current step within Hz (repeat horizon for one selected skill)
 
         self.preprocessor = Preprocessor.make(config.preprocessor)
-        self.s = self.preprocessor(Space.make(config.state_space).with_batch())  # preprocessed states
-        self.a = Space.make(config.action_space).with_batch()  # actions (a)
+        self.s = self.preprocessor(config.state_space.with_batch())  # preprocessed states
+        self.a = config.action_space.with_batch()  # actions (a)
         self.ri = Float(main_axes=[("Episode Horizon", config.episode_horizon)])  # intrinsic rewards in He
-        self.z = Float(-1.0, 1.0, shape=(config.dim_skill_vectors,), main_axes="B") if config.discrete_skills is False \
-            else Int(config.dim_skill_vectors, main_axes="B")
+        self.z = Float(-1.0, 1.0, shape=(config.dim_skill_vectors,), main_axes="B") if \
+            config.discrete_skills is False else Int(config.dim_skill_vectors, main_axes="B")
         self.s_and_z = Dict(dict(s=self.s, z=self.z), main_axes="B")
         self.pi = Network.make(input_space=self.s_and_z, output_space=self.a, **config.policy_network)
         self.q = Network.make(input_space=self.s_and_z, output_space=self.s,
                               distributions=dict(type="mixture", num_experts=config.num_q_experts), **config.q_network)
         self.B = FIFOBuffer(Dict(dict(s=self.s, z=self.z, a=self.a, t=bool)), config.episode_buffer_capacity,
                             when_full=self.event_buffer_full, next_record_setup=dict(s="s_"))
-        self.SAC = SAC(config=SACConfig.make(config.sac_config), name="SAC-level0")  # Low-level SAC.
+        self.SAC = SAC(config=config.sac_config, name="SAC-level0")  # Low-level SAC.
         self.q_optimizer = Optimizer.make(config.supervised_optimizer)  # supervised model optimizer
         self.Lsup = NegLogLikelihoodLoss(distribution=MixtureDistribution(num_experts=config.num_q_experts))
+        self.preprocessor.reset()
 
     def update(self, samples, time_percentage):
         parameters = self.q(dict(s=samples["s"], z=samples["z"]), parameters_only=True)
 
-        # Update for K1 iterations on same batch.
+        # Update for K1 (num_steps_per_supervised_update) iterations on same batch.
         weights = self.q.get_weights(as_ref=True)
         s_ = samples["s_"] if self.config.q_predicts_states_diff is False else \
             tf.nest.map_structure(lambda s, s_: s_ - s, samples["s"], samples["s_"])
@@ -77,41 +78,50 @@ class DADS(RLAlgo):  # He, Hz, Hp, R, K, C, γ, L
         )
 
     # When buffer full -> Update transition model q.
-    def event_buffer_full(self):
-        self.update(self.B.flush(), time_percentage=time_percentage)
+    def event_buffer_full(self, event):
+        self.update(self.B.flush(), time_percentage=event.actor_time_steps / (self.config.max_time_steps or event.env.max_time_steps))
 
-    def event_episode_starts(self, env, time_steps, batch_position, s):
+    def event_episode_starts(self, event):
+        # Initialize z if this hasn't happened yet.
+        if self.z.value is None:
+            self.z.assign(self.z.zeros(len(event.actor_slots)))
+        # Sample new z at the trajectory's batch position.
         if self.inference is False:
-            self.z.value[batch_position] = self.z.sample()  # Sample a new skill from Space z and store it in z (assume uniform).
+            self.z.value[event.current_actor_slot] = self.z.sample()  # Sample a new skill from Space z and store it in z (assume uniform).
+        # Reset preprocessor at actor's batch position.
+        self.preprocessor.reset(batch_position=event.current_actor_slot)
 
     # Fill the buffer with M samples.
-    def event_tick(self, env, actor_time_steps, batch_positions, r, t, s_):
-        # If we are in inference mode -> do a planning step (rather than just act).
-        if self.inference:
-            self.he += 1
-            if self.he >= self.config.He:  # We have reached the end of the total episode horizon -> reset.
-                env.reset()  # Send reset request to env.
-                return
-            self.plan(env.s)
-            # Execute selected skill for Hz steps.
-            if self.hz == self.config.Hz - 1:
-                zi = self.N.sample()   # ?? ~ N[he/Hz]
-                hz = 0  # reset counter
-            hz += 1
-        else:
-            for i in batch_positions:
-                if self.hz[i] >= self.config.skill_horizon:
-                    self.z.value[i] = self.z.sample()
+    def event_tick(self, event):
+        # Preprocess state.
+        s_ = self.preprocessor(event.s_)
+
+        ## If we are in inference mode -> do a planning step (rather than just act).
+        #if self.inference:
+        #    self.he += 1
+        #    if self.he >= self.config.He:  # We have reached the end of the total episode horizon -> reset.
+        #        env.reset()  # Send reset request to env.
+        #        return
+        #    self.plan(env.s)
+        #    # Execute selected skill for Hz steps.
+        #    if self.hz == self.config.Hz - 1:
+        #        zi = self.N.sample()   # ?? ~ N[he/Hz]
+        #        hz = 0  # reset counter
+        #    hz += 1
+        #else:
+        for i in event.actor_slots:
+            if self.hz[i] >= self.config.skill_horizon:
+                self.z.value[i] = self.z.sample()
 
         # Add single(!) szas't-tuple to buffer.
-        if actor_time_steps > 0:
-            self.B.add_records(dict(s=self.s.value, z=self.z.value, a=self.a.value, t=t, s_=s_))
+        if event.actor_time_steps > 0:
+            self.B.add_records(dict(s=self.s.value, z=self.z.value, a=self.a.value, t=event.t, s_=event.s_))
 
         # Query policy for an action.
-        a_ = self.pi(dict(s=s_, z=self.z.value))
+        a_ = self.pi(dict(s=event.s_, z=self.z.value))
 
         # Send the new action back to the env.
-        env.act(a_)
+        event.env.act(a_)
 
         # Store action and state for next tick.
         self.s.assign(s_)
@@ -202,11 +212,15 @@ class DADSConfig(AlgoConfig):
         action_space = Space.make(action_space)
 
         # Fix SAC config, add correct state- and action-spaces.
-        sac_config["state_space"] = Dict(s=state_space, z=Float(-1.0, 1.0, shape=(dim_skill_vectors,)))
-        sac_config["action_space"] = action_space
-        sac_config["memory_capacity"] = 1  # Use no memory. Updates are done from DADS' own buffer.
-        sac_config["memory_batch_size"] = 1
-        sac_config["policy_network"] = policy_network  # Share policy network between DADS and underlying learning SAC.
+        sac_config = SACConfig.make(
+            sac_config,
+            state_space=Dict(s=state_space, z=Float(-1.0, 1.0, shape=(dim_skill_vectors,))),
+            action_space=action_space,
+            # Use no memory. Updates are done from DADS' own buffer.
+            memory_capacity=1, memory_batch_size=1,
+            # Share policy network between DADS and underlying learning SAC.
+            policy_network=policy_network
+        )
 
         if skill_horizon is None:
             skill_horizon = episode_horizon

@@ -53,36 +53,36 @@ class DQN2015(RLAlgo):
             self.optimizer.apply_gradients(list(zip(tape.gradient(L, weights), weights)), time_percentage)
         return L
 
-    def event_episode_starts(self, env, actor_time_steps, batch_position, s):
+    def event_episode_starts(self, event):
         # Reset Phi at beginning of each episode (only at given batch positions).
-        self.Phi.reset(batch_position)
+        self.Phi.reset(event.current_actor_slot)
 
     # Env tick event -> Act in env and collect samples in replay-buffer.
-    def event_tick(self, env, actor_time_steps, batch_positions, r, t, s_):
+    def event_tick(self, event):
         # Update time-percentage value (for decaying parameters, e.g. learning-rate).
-        time_percentage = actor_time_steps / (self.config.max_time_steps or env.max_time_steps)
+        time_percentage = event.actor_time_steps / (self.config.max_time_steps or event.env.max_time_steps)
 
         # Preprocess states. Call preprocessed states 'x', just like in the paper.
-        x_ = self.Phi(s_)
+        x_ = self.Phi(event.s_)
 
         # Add now-complete sars't-tuple to memory (batched).
-        if actor_time_steps > 0:
-            self.memory.add_records(dict(x=self.x.value, a=self.a.value, r=r, x_=x_, t=t))
+        if event.actor_time_steps > 0:
+            self.memory.add_records(dict(x=self.x.value, a=self.a.value, r=event.r, x_=x_, t=event.t))
 
         # Handle ε-greedy exploration (should an ε case always be across the entire batch?).
         if random() > self.epsilon(time_percentage):
             a_ = np.argmax(self.Q(x_), axis=-1)
         else:
-            a_ = self.a.sample(len(batch_positions))
+            a_ = self.a.sample(len(event.actor_slots))
         # Send the new actions back to the env.
-        env.act(a_)
+        event.env.act(a_)
 
         # Every nth tick event -> Update network, based on Loss.
-        if self.is_time_to("update", env.tick, actor_time_steps):
+        if self.is_time_to("update", event.env.tick, event.actor_time_steps):
             self.update(self.memory.get_records(self.config.memory_batch_size), time_percentage)
 
         # Every mth tick event -> Synchronize target Q-net.
-        if self.is_time_to("sync", env.tick, actor_time_steps):
+        if self.is_time_to("sync", event.env.tick, event.actor_time_steps):
             self.Qt.sync_from(self.Q)
 
         # Store actions and states for next tick (they form the incomplete next sars't-tuple).

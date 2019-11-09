@@ -249,9 +249,42 @@ class Network(Model):
         else:
             raise SurrealError("Unsupported input-space type: {}!".format(type(input_component).__name__))
 
-    def call(self, inputs, values=None, *, deterministic=None, likelihood=False, log_likelihood=False):
+    def call(self, inputs, values=None, *, deterministic=None, likelihood=False, log_likelihood=False,
+             parameters_only=False):
         """
-        Computes Q(s) -> a by passing the inputs through our model
+        Computes a forward pass through the neural network, plus (optionally) a distribution sampling step
+        (deterministic or stochastic), plus (optionally) a (log)?-likelihood value for given `values` or the drawn
+        sample.
+        In other words, emulates common pseudocode:
+        - q(s,a) <- Q-value of s,a.
+        - pi(a|s) <- log likelihood/prob of a given s.
+        - pi(s) <- action sample, given s.
+        - pi(s, log_likelihood=True) <- action sample (given s), plus the log-likelihood of the drawn action.
+
+        Args:
+            inputs (any): The inputs to this Network (may be an arbitrarily nested structure).
+            values (Optional[any]): The values to get (log)?-probs/likelihoods for.
+
+            deterministic (Optional[bool]): If not None, use this setting (instead of `self.deterministic`) to determine
+                whether a possible sampling from a distribution should be done deterministically or not.
+
+            likelihood (bool): Whether to also return the likelihood (prob) when sampling, or the likelihood (prob)
+                for the provided `values` for those output components that have distributions.
+
+            log_likelihood (bool): Whether to also return the log-likelihood (log-prob) when sampling, or the
+                log-likelihood (log-prob) for the provided `values` for those output components that have distributions.
+
+            parameters_only (bool): Whether to only return the raw distribution parameters (no sampling) for all
+                output components. Only meaningful if `values` is None.
+
+        Returns:
+            Depending on the given options, returns:
+                1) If `values` is None: Plain output for output-components w/o a distribution, a (deterministic or
+                    stochastic) sample for those with distribution.
+                    If likelihood/log_likelihood are True, a second return item (the (log)?-likelihood) is returned.
+                2) If `values` is not None: The likelihood/log-likelihood of the given value against the output
+                    distributions. If some output components do not have distributions, a tuple:
+                    ([output-components], [(log)?-likelihoods of those output component that do have a distribution])
         """
         deterministic = deterministic if deterministic is not None else self.deterministic
 
@@ -271,6 +304,10 @@ class Network(Model):
             # No values given -> Sample from distribution or return plain adapter-output (if no distribution given).
             if values is None:
                 adapter_outputs = [a(nn_out) for a in self.adapters]
+                # Only raw adapter outputs wanted.
+                if parameters_only is True:
+                    return adapter_outputs
+
                 tfp_distributions = [
                     distribution.parameterize_distribution(adapter_outputs[i])
                     if distribution is not None else None

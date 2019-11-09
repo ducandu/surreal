@@ -94,8 +94,8 @@ class SAC(RLAlgo):
 
         # Add now-complete sars't-tuple to memory (batched).
         if event.actor_time_steps > 0:
-            records = self.n_step(self.s.value, self.a_soft.value, event.r, event.t, event.s_) if \
-                self.config.n_step > 1 else dict(s=self.s.value, a=self.a_soft.value, r=event.r, t=event.t, s_=event.s_)
+            records = self.n_step(self.s.value, self.a_soft.value, event.r, event.t, s_) if \
+                self.config.n_step > 1 else dict(s=self.s.value, a=self.a_soft.value, r=event.r, t=event.t, s_=s_)
             if records:
                 self.memory.add_records(records)
 

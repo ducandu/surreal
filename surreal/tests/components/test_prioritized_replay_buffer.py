@@ -98,7 +98,7 @@ class TestPrioritizedReplayBuffer(unittest.TestCase):
         # Expect to sample almost only index 1 (which still has a weight of 1.0).
         for _ in range(100):
             _, indices, weights = memory.get_records_with_indices_and_weights(num_records=1000)
-            self.assertGreaterEqual(np.sum(indices), 980)
+            self.assertGreaterEqual(np.sum(indices), 970)
 
         # Update weight of index 1 to very small as well.
         # Expect to sample equally.

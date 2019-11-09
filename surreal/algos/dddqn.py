@@ -85,7 +85,7 @@ class DDDQN(RLAlgo):
         if random() > self.epsilon(time_percentage):
             a_ = np.argmax(self.Q(x_)["A"], axis=-1)  # "A" -> advantage values (for argmax, same as Q-values).
         else:
-            a_ = self.a.sample(len(event.current_actor_slot))
+            a_ = self.a.sample(len(event.actor_slots))
         # Send the new actions back to the env.
         event.env.act(a_)
 

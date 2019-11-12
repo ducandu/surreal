@@ -41,73 +41,80 @@ class TestTrajectoryBuffer(unittest.TestCase):
         """
         Test if we can accurately retrieve the most recent trajectories.
         """
-        trajectory_buffer = TrajectoryBuffer(self.record_space, capacity=self.capacity, terminal_key="terminals")
+        memory = TrajectoryBuffer(self.record_space, capacity=self.capacity, terminal_key="terminals")
 
         batch_size = 2
 
         # Insert seq1=F F T, seq2=F F F T seq3=T (using 4 batches of size 2).
         records = self.record_space.sample(batch_size)
         records["terminals"] = np.array([False, False])
-        trajectory_buffer.add_records(records)
+        memory.add_records(records)
+        self.assertTrue(memory.size == 2)
         # MEMORY: [F F x] x=idx
 
         records = self.record_space.sample(batch_size)
         records["terminals"] = np.array([False, False])
-        trajectory_buffer.add_records(records)
+        memory.add_records(records)
+        self.assertTrue(memory.size == 4)
         # MEMORY: [F F | F F x] x=idx
 
         records = self.record_space.sample(batch_size)
         records["terminals"] = np.array([True, False])
-        trajectory_buffer.add_records(records)
+        memory.add_records(records)
+        self.assertTrue(memory.size == 6)
         # MEMORY: [F F | F F | T F x] x=idx
 
         records = self.record_space.sample(batch_size)
         records["terminals"] = np.array([True, True])
-        trajectory_buffer.add_records(records)
+        memory.add_records(records)
+        self.assertTrue(memory.size == 8)
         # MEMORY: [F F | F F | T F | T T x] x = idx
 
-        check(trajectory_buffer.index, 8)
+        check(memory.index, 8)
 
         # We should now be able to retrieve 1 episode of length 4 (seq2).
         # [F (F) | F (F) | T (F) | T (T)] "()"=retrieved episode.
-        trajectories = trajectory_buffer.get_trajectories(num_trajectories=1)
+        trajectories = memory.get_trajectories(num_trajectories=1)
         check(trajectories["terminals"], [False, False, False, True])
-        check(trajectories["rewards"], trajectory_buffer.memory[1][np.array([1, 3, 5, 7])])
+        check(trajectories["rewards"], memory.memory[1][np.array([1, 3, 5, 7])])
 
         # We should now be able to retrieve 2 episodes of length 4 and 1 (seq2 and seq3).
-        trajectories = trajectory_buffer.get_trajectories(num_trajectories=2)
+        trajectories = memory.get_trajectories(num_trajectories=2)
         check(trajectories["terminals"], [False, False, False, True, True])
-        check(trajectories["rewards"], trajectory_buffer.memory[1][np.array([1, 3, 5, 7, 6])])
+        check(trajectories["rewards"], memory.memory[1][np.array([1, 3, 5, 7, 6])])
         # [F (F) | F (F) | T (F) | {T} (T)] "(){}"=retrieved episodes.
 
         # We should not be able to retrieve all 3 episodes.
-        trajectories = trajectory_buffer.get_trajectories(num_trajectories=3)
+        trajectories = memory.get_trajectories(num_trajectories=3)
         check(trajectories["terminals"], [False, False, False, True, True, False, False, True])
-        check(trajectories["rewards"], trajectory_buffer.memory[1][np.array([1, 3, 5, 7, 6, 0, 2, 4])])
+        check(trajectories["rewards"], memory.memory[1][np.array([1, 3, 5, 7, 6, 0, 2, 4])])
 
         # Add more records that do not end in terminals.
         for i in range(2):
             records = self.record_space.sample(batch_size)
             records["terminals"] = np.array([False, False])
-            trajectory_buffer.add_records(records)
-            check(trajectory_buffer.index, i * 2)
+            memory.add_records(records)
+            check(memory.index, i * 2)
+            self.assertTrue(memory.size == 10)
+
         # MEMORY: [F F | Fx F | T F | T T | F F] x=idx
 
         # Check if we can get 4 episodes (the most recent one should be duplicated as we don't have 4 complete ones in
         # memory yet):
-        trajectories = trajectory_buffer.get_trajectories(num_trajectories=4)
+        trajectories = memory.get_trajectories(num_trajectories=4)
         check(trajectories["terminals"], [False, False, True, True, False, True, False, False, True])
-        check(trajectories["rewards"], trajectory_buffer.memory[1][np.array([3, 5, 7, 6, 2, 4, 3, 5, 7])])
+        check(trajectories["rewards"], memory.memory[1][np.array([3, 5, 7, 6, 2, 4, 3, 5, 7])])
 
         # Complete a 4th episode.
         records = self.record_space.sample(batch_size)
         records["terminals"] = np.array([True, False])
-        trajectory_buffer.add_records(records)
+        memory.add_records(records)
+        self.assertTrue(memory.size == 10)
         # MEMORY: [F F | T F | Tx F | T T | F F] x=idx
-        check(trajectory_buffer.index, 4)
+        check(memory.index, 4)
 
         # Check if we can get 5 episodes (the most recent one should be duplicated as we don't have 5 complete ones in
         # memory):
-        trajectories = trajectory_buffer.get_trajectories(num_trajectories=5)
+        trajectories = memory.get_trajectories(num_trajectories=5)
         check(trajectories["terminals"], [False, False, True, False, True, True, True, False, False, True])
-        check(trajectories["rewards"], trajectory_buffer.memory[1][np.array([8, 0, 2, 5, 7, 6, 4, 8, 0, 2])])
+        check(trajectories["rewards"], memory.memory[1][np.array([8, 0, 2, 5, 7, 6, 4, 8, 0, 2])])

@@ -18,7 +18,7 @@ import numpy as np
 import tensorflow as tf
 
 from surreal.algos.rl_algo import RLAlgo
-from surreal.components import Decay, GeneralizedAdvantages, Network, ReplayBuffer, Optimizer, Preprocessor, \
+from surreal.components import Decay, GeneralizedAdvantages, Network, TrajectoryBuffer, Optimizer, Preprocessor, \
     LossFunction
 from surreal.config import AlgoConfig
 from surreal.spaces import Dict, Int, Space
@@ -45,7 +45,7 @@ class PPO(RLAlgo):
             input_space=self.s, **config.policy_network
         )
         record_space = Dict(dict(s=self.s, a=self.a, r=float, t=bool), main_axes="B")
-        self.memory = ReplayBuffer.make(capacity=config.memory_capacity, record_space=record_space, episodes=True)
+        self.memory = TrajectoryBuffer.make(capacity=config.memory_capacity, record_space=record_space)
         self.gae = GeneralizedAdvantages(config.gamma, config.gae_lambda, config.clip_rewards)
         self.L = PPOLoss()
         self.optimizers = dict(
@@ -74,7 +74,7 @@ class PPO(RLAlgo):
             A = (A - mean) / std
 
         policy_loss, value_function_loss = None, None
-        for _ in range(self.config.num_iterations):
+        for _ in range(self.config.num_sub_sampling_iterations):
             # Figure out the indices for the sub-sampling iteration.
             start = np.random.randint(self.config.memory_batch_size)
             indices = np.arange(start, start + self.config.sample_size) % self.config.memory_batch_size
@@ -204,7 +204,7 @@ class PPOConfig(AlgoConfig):
             memory_capacity=10000, memory_batch_size=256,
             use_prioritized_replay=False, memory_alpha=1.0, memory_beta=0.0,
             max_time_steps=None, update_after=0, update_frequency=1, num_steps_per_update=1,
-            num_subsampling_iterations=10,
+            num_sub_sampling_iterations=10,
             time_unit="time_step",
             summaries=None
     ):
@@ -253,7 +253,7 @@ class PPOConfig(AlgoConfig):
             num_steps_per_update (int): The number of gradient descent iterations per update (each iteration uses
                 a different sample).
 
-            num_subsampling_iterations (int): The number of sub-sampling (from the batch) loops to perform during one
+            num_sub_sampling_iterations (int): The number of sub-sampling (from the batch) loops to perform during one
                 update step.
 
             time_unit (str["time_step","env_tick"]): The time units we are using for update/sync decisions.
@@ -305,7 +305,7 @@ class PPOConfig(AlgoConfig):
         # Special value for start-train parameter -> When memory full.
         if update_after == "when-memory-full":
             update_after = memory_capacity
-        # Special value for start-train parameter -> When memory has enough records to pull a batch.
+        # Special value for start-train parameter -> When memory has enough trajectories to pull a batch.
         elif update_after == "when-memory-ready":
             update_after = memory_batch_size
         assert isinstance(update_after, int)

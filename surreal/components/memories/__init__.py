@@ -17,6 +17,7 @@ from surreal.components.memories.memory import Memory
 from surreal.components.memories.fifo_buffer import FIFOBuffer
 from surreal.components.memories.prioritized_replay_buffer import PrioritizedReplayBuffer
 from surreal.components.memories.replay_buffer import ReplayBuffer
+from surreal.components.memories.trajectory_buffer import TrajectoryBuffer
 
 Memory.__lookup_classes__ = dict(
     fifobuffer=FIFOBuffer,
@@ -24,7 +25,8 @@ Memory.__lookup_classes__ = dict(
     prioritizedreplay=PrioritizedReplayBuffer,
     prioritizedreplaybuffer=PrioritizedReplayBuffer,
     replaybuffer=ReplayBuffer,
-    replaymemory=ReplayBuffer
+    replaymemory=ReplayBuffer,
+    trajectorybuffer=TrajectoryBuffer
 )
 Memory.__default_constructor__ = ReplayBuffer
 

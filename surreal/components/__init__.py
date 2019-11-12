@@ -15,8 +15,8 @@
 # ==============================================================================
 
 from surreal.makeable import Makeable
-from surreal.components.misc import Decay, Constant, LinearDecay, ExponentialDecay, PolynomialDecay, NStep,\
-    SegmentTree, MinSumSegmentTree
+from surreal.components.misc import Decay, Constant, GeneralizedAdvantages, LinearDecay, ExponentialDecay, \
+    PolynomialDecay, NStep, SegmentTree, MinSumSegmentTree, TrajectoryProcessor
 from surreal.components.distributions import *
 from surreal.components.preprocessors import *
 from surreal.components.loss_functions import *
@@ -36,8 +36,11 @@ default_dict(Makeable.__lookup_classes__, Preprocessor.__lookup_classes__)
 Makeable.__lookup_classes__["nstep"] = NStep
 Makeable.__lookup_classes__["segmenttree"] = SegmentTree
 Makeable.__lookup_classes__["minsumsegmenttree"] = MinSumSegmentTree
+Makeable.__lookup_classes__["generalizedadvantages"] = GeneralizedAdvantages
+Makeable.__lookup_classes__["trajectprocessor"] = TrajectoryProcessor
+Makeable.__lookup_classes__["trajectoryprocessor"] = TrajectoryProcessor
 
-__all__ = [] + \
+__all__ = ["NStep", "SegmentTree", "MinSumSegmentTree", "GeneralizedAdvantages", "TrajectProcessor"] + \
           list(set(map(lambda x: x.__name__, Decay.__lookup_classes__.values()))) + \
           list(set(map(lambda x: x.__name__, Distribution.__lookup_classes__.values()))) + \
           list(set(map(lambda x: x.__name__, LossFunction.__lookup_classes__.values()))) + \

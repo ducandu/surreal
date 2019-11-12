@@ -17,6 +17,7 @@ from surreal.algos.rl_algo import RLAlgo, RLAlgoEvent
 from surreal.algos.dads import DADS, DADSConfig
 from surreal.algos.dqn2015 import DQN2015, DQN2015Loss, DQN2015Config
 from surreal.algos.dddqn import DDDQN, DDDQNLoss, DDDQNConfig
+from surreal.algos.ppo import PPO, PPOLoss, PPOConfig
 from surreal.algos.sac import SAC, SACLoss, SACConfig
 
 __all__ = [
@@ -24,5 +25,6 @@ __all__ = [
     "DADS", "DADSConfig",
     "DQN2015", "DQN2015Loss", "DDDQNConfig",
     "DDDQN", "DDDQNLoss", "DDDQNConfig",
+    "PPO", "PPOLoss", "PPOConfig",
     "SAC", "SACLoss", "SACConfig"
 ]

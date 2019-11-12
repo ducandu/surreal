@@ -33,13 +33,10 @@ class MultivariateNormal(Distribution):
 
     def parameterize_distribution(self, parameters):
         if self.parameterize_via_diagonal is True:
-            return tfp.distributions.MultivariateNormalDiag(
-                loc=parameters[0], scale_diag=parameters[1]
-            )
+            return tfp.distributions.MultivariateNormalDiag(loc=parameters[0], scale_diag=parameters[1])
         # TODO: support parameterization through full covariance matrix.
         else:
             raise NotImplementedError
-        #else:
         #    mean, covariance_matrix = tf.split(parameters, num_or_size_splits=[1, self.num_events], axis=-1)
         #    mean = tf.squeeze(mean, axis=-1)
         #    return tfp.distributions.MultivariateNormalFullCovariance(

@@ -37,9 +37,13 @@ class PPO(RLAlgo):
         self.s = self.preprocessor(Space.make(config.state_space).with_batch())  # preprocessed states
         self.a = Space.make(config.action_space).with_batch()  # actions (a)
         self.V = None
-        if config.use_separate_value_function_network is True:
-            self.V = Network.make()
-        self.pi = Network.make(distributions=dict(), input_space=self.s, output_space=self.a, **config.policy_network)  # policy (π)
+        if config.shared_value_function is False:
+            self.V = Network.make(input_space=self.s, output_space=float, **config.value_function_network)
+        self.pi = Network.make(  # policy (π), maybe including value function V.
+            distributions=True if not config.shared_value_function else dict(a=True),
+            output_space=self.a if not config.shared_value_function else Dict(a=self.a, V=float),
+            input_space=self.s, **config.policy_network
+        )
         record_space = Dict(dict(s=self.s, a=self.a, r=float, t=bool), main_axes="B")
         self.memory = ReplayBuffer.make(capacity=config.memory_capacity, record_space=record_space, episodes=True)
         self.gae = GeneralizedAdvantages(config.gamma, config.gae_lambda, config.clip_rewards)
@@ -191,15 +195,16 @@ class PPOConfig(AlgoConfig):
     def __init__(
             self, *,
             policy_network, state_space, action_space,
-            value_function_network=None, use_shared_value_function=True,
+            value_function_network=None, shared_value_function=True,
             preprocessor=None,
             default_optimizer=None, policy_optimizer=None, value_function_optimizer=None,
             gamma=0.99,
             clip_ratio=0.2, gae_lambda=1.0, clip_rewards=0.0, clip_value_function=0.0,
-            standardize_advantages=False, entropy_weight=None,
+            standardize_advantages=False, entropy_weight=0.00025,
             memory_capacity=10000, memory_batch_size=256,
             use_prioritized_replay=False, memory_alpha=1.0, memory_beta=0.0,
             max_time_steps=None, update_after=0, update_frequency=1, num_steps_per_update=1,
+            num_subsampling_iterations=10,
             time_unit="time_step",
             summaries=None
     ):
@@ -212,7 +217,7 @@ class PPOConfig(AlgoConfig):
             value_function_network (Network): The value-function-network (V) to use as a function approximator for the
                 learnt value-function. Default: Use the same setup as the policy-network.
 
-            use_shared_value_function (bool): Whether to not use the `value_function_network` (must be None then) and
+            shared_value_function (bool): Whether to not use the `value_function_network` (must be None then) and
                 instead share the network between pi and V.
 
             preprocessor (Preprocessor): The preprocessor (if any) to use.
@@ -248,6 +253,9 @@ class PPOConfig(AlgoConfig):
             num_steps_per_update (int): The number of gradient descent iterations per update (each iteration uses
                 a different sample).
 
+            num_subsampling_iterations (int): The number of sub-sampling (from the batch) loops to perform during one
+                update step.
+
             time_unit (str["time_step","env_tick"]): The time units we are using for update/sync decisions.
 
             summaries (List[any]): A list of summaries to produce if `UseTfSummaries` in debug.json is true.
@@ -258,7 +266,7 @@ class PPOConfig(AlgoConfig):
         if policy_network is None:
             assert isinstance(value_function_network, (dict, list, tuple))
             policy_network = value_function_network
-        if use_shared_value_function is True:
+        if shared_value_function is True:
             assert value_function_network is None
         elif value_function_network is None:
             assert isinstance(policy_network, (dict, list, tuple))

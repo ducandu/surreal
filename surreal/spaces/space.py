@@ -108,7 +108,8 @@ class Space(Makeable, metaclass=ABCMeta):
     def reduction_axes(self):
         """
         Returns:
-            List[int]: A list of axes to be reduced by any tf.reduce... operation sparing out the main-axes.
+            List[int]: A list of axes to be reduced by any tf.reduce... operation, while sparing the main-axes from
+                the reduction operation.
                 E.g.: [-1, -2, -3] for a space with shape=(2,4,6) and any number of main_axes.
         """
         return list(reversed(range(-self.rank, 0)))

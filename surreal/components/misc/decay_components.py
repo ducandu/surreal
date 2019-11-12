@@ -18,18 +18,21 @@ from abc import abstractmethod
 import numpy as np
 
 from surreal.makeable import Makeable
+from surreal.utils.util import convert_dtype
 
 
 class Decay(Makeable):
     """
     A time-dependent or constant parameter that can be used to implement learning rate or other decaying parameters.
     """
-    def __init__(self, from_=1.0, to_=0.0, *, max_time_steps=None, begin_time_percentage=0.0, end_time_percentage=1.0,
-                 resolution=10000, **kwargs):
+    def __init__(self, from_=1.0, to_=0.0, *, dtype="float",
+                 max_time_steps=None, begin_time_percentage=0.0, end_time_percentage=1.0, resolution=10000, **kwargs):
         """
         Args:
             from_ (float): The constant value or start value to use.
             to_ (Optional[float]): The value to move towards if this parameter is time-dependent.
+
+            dtype (str): The datatype of the resulting decay value. Should be either "float" or "int".
 
             max_time_steps (Optional[int]): The maximum number of time-steps to use for percentage/decay calculations.
                 If not provided, the time-step percentage must be passed into API-calls to `get`.
@@ -43,10 +46,11 @@ class Decay(Makeable):
         """
         super().__init__()
 
-        #assert self.backend == "python"
-
         self.from_ = kwargs.get("from", from_)
         self.to_ = kwargs.get("to", to_)
+
+        self.dtype = convert_dtype(dtype, "np")
+        assert self.dtype in [np.float32, np.int32]
 
         # In case time_percentage is not provided in a call, try to calculate it from a c'tor provided
         # `max_time_steps` value.
@@ -77,7 +81,10 @@ class Decay(Makeable):
                 )
             )
         )
-        return float(value) if value.shape == () else value
+        if self.dtype == np.float32:
+            return float(value) if value.shape == () else value
+        else:
+            return int(value) if value.shape == () else value.astype(np.int32)
 
     @abstractmethod
     def call(self, time_percentage):

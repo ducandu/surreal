@@ -32,4 +32,3 @@ Memory.__default_constructor__ = ReplayBuffer
 
 __all__ = ["Memory"] + \
           list(set(map(lambda x: x.__name__, Memory.__lookup_classes__.values())))
-

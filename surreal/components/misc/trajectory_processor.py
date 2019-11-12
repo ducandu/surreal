@@ -48,7 +48,7 @@ class TrajectoryProcessor(Makeable):
         if length > 0:
             trajectory_lengths.append(length)
 
-        return trajectory_lengths
+        return np.array(trajectory_lengths)
 
     @staticmethod
     def get_trajectory_decays(traject_interruptions, decay=0.9):
@@ -87,12 +87,12 @@ class TrajectoryProcessor(Makeable):
         if length > 0:
             trajectory_lengths.append(length)
 
-        return trajectory_lengths, decays
+        return np.array(trajectory_lengths), np.array(decays)
 
     @staticmethod
-    def reverse_apply_decays_to_sequence(values, traject_interruptions, decay=0.9):
+    def reverse_apply_decays_to_trajectory(values, traject_interruptions, decay=0.9):
         """
-        Computes decays for sequence indices and applies them (in reverse manner to a sequence of values).
+        Computes decays for trajectory indices and applies them (in reverse manner to a trajectory of values).
         Useful to compute discounted reward estimates across a sequence of estimates.
 
         Args:
@@ -104,7 +104,7 @@ class TrajectoryProcessor(Makeable):
             decay (float): The decay factor (discount factor).
 
         Returns:
-            np.ndarray[float]: Decayed sequence values.
+            np.ndarray[float]: Decayed values.
         """
         # Scan sequences in reverse:
         decayed_values = []
@@ -122,7 +122,7 @@ class TrajectoryProcessor(Makeable):
             i -= 1
 
         # Reverse, convert, and return final.
-        return list(reversed(decayed_values))
+        return np.array(list(reversed(decayed_values)))
 
     @staticmethod
     def bootstrap_values(values, r, t, traject_interruptions, discount=0.99):
@@ -144,7 +144,7 @@ class TrajectoryProcessor(Makeable):
             discount (float): Discount to apply to delta computation.
 
         Returns:
-            Sequence of deltas.
+            np.ndarray[float]: Sequence of deltas.
         """
         deltas = []
         start_index = 0

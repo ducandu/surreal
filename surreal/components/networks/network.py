@@ -291,6 +291,8 @@ class Network(Model):
         # If complex input -> pass through pre_concat_nns, then concat, then move on through core nn.
         if len(self.pre_concat_networks) > 0:
             inputs = tf.nest.flatten(inputs)
+            # Make sure input is roughly in line with `self.input_space`.
+            assert len(self.flat_input_space) == len(inputs)
             inputs = tf.concat([
                 self.pre_concat_networks[i](in_) if self.pre_concat_networks[i] is not None else in_
                 for i, in_ in enumerate(inputs)
@@ -306,7 +308,7 @@ class Network(Model):
                 adapter_outputs = [a(nn_out) for a in self.adapters]
                 # Only raw adapter outputs wanted.
                 if parameters_only is True:
-                    return adapter_outputs
+                    return tf.nest.pack_sequence_as(self.output_space.structure, adapter_outputs)
 
                 tfp_distributions = [
                     distribution.parameterize_distribution(adapter_outputs[i])
@@ -347,8 +349,10 @@ class Network(Model):
                 combined_likelihood_return = None
                 for i, distribution in enumerate(self.distributions):
                     if distribution is not None and flat_values[i] is not "_undef_" and flat_values[i] is not None:
-                        log_llhs = distribution.log_prob(self.adapters[i](nn_out), flat_values[i])
-                        log_llh_sum = tf.math.reduce_sum(log_llhs, axis=self.flat_output_space[i].reduction_axes)
+                        log_llh_sum = distribution.log_prob(self.adapters[i](nn_out), flat_values[i])
+                        # `log_llh_sum` has not been reduced to the main axes yet (by the distribution) -> Do this here.
+                        if len(self.flat_output_space[i].main_axes) < len(log_llh_sum.shape):
+                            log_llh_sum = tf.math.reduce_sum(log_llh_sum, axis=self.flat_output_space[i].reduction_axes)
                         combined_likelihood_return = (combined_likelihood_return if combined_likelihood_return is not None else 0.0) + log_llh_sum
                 if combined_likelihood_return is not None and not log_likelihood:
                     combined_likelihood_return = tf.math.exp(combined_likelihood_return)

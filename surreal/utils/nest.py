@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import tensorflow as tf
+
 
 def flatten_alongside(input_, alongside=None, op_tuple_list=None):
     """
@@ -69,3 +71,15 @@ def flatten_alongside(input_, alongside=None, op_tuple_list=None):
     # Non recursive (first) call -> Return the final FlattenedDataOp.
     if ret:
         return op_tuple_list
+
+
+def keys_to_flattened_struct_indices(struct):
+    global i
+    i = -1
+
+    def numerate(s):
+        global i
+        i += 1
+        return i
+
+    return tf.nest.map_structure(numerate, struct)

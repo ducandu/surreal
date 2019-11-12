@@ -16,7 +16,6 @@
 
 import numpy as np
 import operator
-import tensorflow as tf
 
 from surreal.components.misc.segment_tree import SegmentTree, MinSumSegmentTree
 from surreal.components.memories.memory import Memory

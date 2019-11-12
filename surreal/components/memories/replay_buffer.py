@@ -14,7 +14,6 @@
 # ==============================================================================
 
 import numpy as np
-import tensorflow as tf
 
 from surreal.components.memories.memory import Memory
 from surreal.debug import KeepLastMemoryBatch
@@ -25,19 +24,11 @@ class ReplayBuffer(Memory):
     """
     Implements a standard replay memory to sample randomized batches of arbitrary data.
     """
-    #def __init__(self, record_space, capacity=1000, *, next_record_setup=None):
-    #    super().__init__(record_space=record_space, capacity=capacity, next_record_setup=next_record_setup)
-
     def add_records(self, records, single=False):
         num_records, flat_records = self.get_number_and_flatten_records(records, single)
 
         # Determine our insertion indices.
         indices = np.arange(self.index, self.index + num_records) % self.capacity
-
-        ## Add values to the indices.
-        #for i in range(len(self.memory)):
-        #    for j, k in enumerate(indices):
-        #        self.memory[i][k] = flat_records[i][j]
 
         # Add values to the indices.
         for i, memory_bin in enumerate(self.memory):

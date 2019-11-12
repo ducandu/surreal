@@ -22,6 +22,7 @@ import tensorflow as tf
 from surreal.makeable import Makeable
 from surreal.spaces import Dict
 from surreal.utils.errors import SurrealError
+from surreal.utils.nest import keys_to_flattened_struct_indices
 from surreal.utils.util import get_batch_size
 
 
@@ -29,7 +30,7 @@ class Memory(Makeable, metaclass=ABCMeta):
     """
     Abstract memory component.
     """
-    def __init__(self, record_space, capacity=1000, *, next_record_setup=None):
+    def __init__(self, record_space, capacity=1000, *, next_record_setup=None, enforce_batch_size=False):
         """
         Args:
             record_space (Space): The Space of the records that will go into this memory. May be ContainerSpace.
@@ -51,6 +52,9 @@ class Memory(Makeable, metaclass=ABCMeta):
                 For an n-step setup, the extra key: `n_step` is required in `next_record_setup`. This key holds the
                 number of steps to span over. Corresponds to the `n_step` config parameter in RLAlgos that support
                 n-step learning.
+
+            enforce_batch_size (bool): Whether to strictly enforce the consistency in size of each added batch. If True,
+                each call to `add_records` must have the same batch_size in the incoming `records`.
         """
         super().__init__()
 
@@ -61,8 +65,10 @@ class Memory(Makeable, metaclass=ABCMeta):
         self.record_space = record_space.with_batch(dimension=self.capacity)
         self.flat_record_space = tf.nest.flatten(self.record_space)
 
-        # Iff `next_record_setup` is given, incoming batches must always be of the same size.
+        # Iff `next_record_setup` is given or enforce_batch_size is set, incoming batches must always be of the same
+        # size.
         self.batch_size = None
+        self.enforce_batch_size = enforce_batch_size
         # The dict carrying all next-record setup information.
         self.next_record_setup = None
         self.n_step = 1
@@ -72,16 +78,16 @@ class Memory(Makeable, metaclass=ABCMeta):
             self.n_step = next_record_setup.pop("n_step", 1)
             # Figure out, which fields correspond to which flattened memory bins.
             self.next_record_setup = {}
-            global i
-            i = -1
+            #global i
+            #i = -1
 
-            def numerate(s):
-                global i
-                i += 1
-                return i
+            #def numerate(s):
+            #    global i
+            #    i += 1
+            #    return i
 
-            keys_to_bins = tf.nest.map_structure(numerate, self.record_space.structure)
-            for field, next_field in next_record_setup.items():
+            keys_to_bins = keys_to_flattened_struct_indices(self.record_space.structure)  #tf.nest.map_structure(numerate, self.record_space.structure)
+            for field, next_field in sorted(next_record_setup.items()):
                 self.next_record_setup[field] = (next_field, tf.nest.flatten(keys_to_bins[field]))
 
         # Extra space for storing next-states of the last n (before `self.index`, where n=batch size) records.
@@ -215,7 +221,7 @@ class Memory(Makeable, metaclass=ABCMeta):
             num_records = 1
 
         # Check for correct batch size.
-        if self.next_record_setup:
+        if self.next_record_setup or self.enforce_batch_size:
             if self.batch_size is None:
                 self.batch_size = num_records
                 assert self.capacity % self.batch_size == 0, \
@@ -252,10 +258,12 @@ class Memory(Makeable, metaclass=ABCMeta):
             # next-values as the records n-steps ahead are unrelated (from a much earlier insertion) to the records at
             # `indices`. Therefore, we must use the `self.next_records` area to get the correct next-values.
             critical_range = [i % self.capacity for i in range(self.index - self.batch_size * self.n_step, self.index)]
+            next_var = -1
             # Loop through all next-record setups.
-            for field, (next_field, memory_bins) in self.next_record_setup.items():
+            for field, (next_field, memory_bins) in sorted(self.next_record_setup.items()):
                 next_values = []
-                for next_var, var in enumerate(memory_bins):
+                for var in memory_bins:
+                    next_var += 1
                     a = []
                     for i in indices:
                         # i is within last batch -> Take next-values from reserve area.

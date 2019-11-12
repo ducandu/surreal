@@ -41,42 +41,6 @@ def config_from_path(path, root=None):
         return json.load(fp)
 
 
-def non_terminal_records(record_space, num_samples):
-    """
-    Samples a number of records and enforces all terminals to be 0,
-    which is needed for testing memories.
-
-    Args:
-        record_space (Space): Space to sample from.
-        num_samples (int): Number of samples to draw.
-
-    Returns:
-        Dict: Sampled records with all terminal values set to 0.
-    """
-    record_sample = record_space.sample(size=num_samples)
-    record_sample['terminals'] = np.full(shape=(num_samples,), fill_value=np.bool_(False))
-
-    return record_sample
-
-
-def terminal_records(record_space, num_samples):
-    """
-    Samples a number of records and enforces all terminals to be True,
-    which is needed for testing memories.
-
-    Args:
-        record_space (Space): Space to sample from.
-        num_samples (int): Number of samples to draw.
-
-    Returns:
-        Dict: Sampled records with all terminal values set to True.
-    """
-    record_sample = record_space.sample(size=num_samples)
-    record_sample['terminals'] = np.full(shape=(num_samples,), fill_value=np.bool_(True))
-
-    return record_sample
-
-
 def check(x, y, decimals=5, atol=None, rtol=None, false=False):
     """
     Checks two structures (dict, DataOpDict, tuple, DataOpTuple, list, np.array, float, int, etc..) for (almost!)

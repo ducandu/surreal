@@ -42,6 +42,7 @@ class NegLogLikelihoodLoss(LossFunction):
         """
         Args:
             parameters (any): Parameters to parameterize `self.distribution`.
+
             labels (any): Labels that will be passed (as `values`) through the pdf function of the distribution
                 to get the loss.
 
@@ -50,9 +51,8 @@ class NegLogLikelihoodLoss(LossFunction):
         """
         # Get the distribution's log-likelihood for the labels, given the parameterized distribution.
         neg_log_likelihood = -self.distribution.log_prob(parameters, labels)
-
         # If necessary, reduce over all non-batch/non-time ranks.
-        neg_log_likelihood = tf.reduce_sum(neg_log_likelihood,
-                                           axis=list(range(len(neg_log_likelihood.shape) - 1, 0, -1)))
-
+        neg_log_likelihood = tf.reduce_sum(
+            neg_log_likelihood, axis=list(range(len(neg_log_likelihood.shape) - 1, 0, -1))
+        )
         return neg_log_likelihood

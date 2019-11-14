@@ -65,6 +65,7 @@ class NStep(Makeable):
         """
         self.queue.append(dict(s=s, a=a, r=r, t=t))
         records = {"s": [], "a": [], "r": [], "t": [], "s_": [], "n": []}
+        # TODO: What if complex container state space?
         if isinstance(s_, tf.Tensor):
             s_ = s_.numpy()
         else:

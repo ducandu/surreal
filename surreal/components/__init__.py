@@ -1,5 +1,4 @@
 # Copyright 2019 ducandu GmbH, All Rights Reserved
-# (this is a modified version of the Apache 2.0 licensed RLgraph file of the same name).
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +14,7 @@
 # ==============================================================================
 
 from surreal.makeable import Makeable
-from surreal.components.misc import Decay, Constant, GeneralizedAdvantages, LinearDecay, ExponentialDecay, \
+from surreal.components.misc import Decay, Constant, LinearDecay, ExponentialDecay, \
     PolynomialDecay, NStep, SegmentTree, MinSumSegmentTree, TrajectoryProcessor
 from surreal.components.distributions import *
 from surreal.components.preprocessors import *
@@ -36,7 +35,6 @@ default_dict(Makeable.__lookup_classes__, Preprocessor.__lookup_classes__)
 Makeable.__lookup_classes__["nstep"] = NStep
 Makeable.__lookup_classes__["segmenttree"] = SegmentTree
 Makeable.__lookup_classes__["minsumsegmenttree"] = MinSumSegmentTree
-Makeable.__lookup_classes__["generalizedadvantages"] = GeneralizedAdvantages
 Makeable.__lookup_classes__["trajectprocessor"] = TrajectoryProcessor
 Makeable.__lookup_classes__["trajectoryprocessor"] = TrajectoryProcessor
 

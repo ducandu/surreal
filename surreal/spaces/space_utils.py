@@ -86,8 +86,8 @@ def get_space_from_data(data, num_categories=None, main_axes=None):
             #    continue
             #num_categories = data.get("_num_{}".format(key))
 
-            num_categories = num_categories.get(key, None) if isinstance(num_categories, dict) else num_categories
-            spec[key] = get_space_from_data(value, num_categories=num_categories, main_axes=main_axes)
+            num_cats = num_categories.get(key, None) if isinstance(num_categories, dict) else num_categories
+            spec[key] = get_space_from_data(value, num_categories=num_cats, main_axes=main_axes)
             # Return
             if spec[key] == 0:
                 return 0

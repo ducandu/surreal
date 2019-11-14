@@ -45,7 +45,9 @@ class Network(Model):
 
             output_space (Space): The output Space (may be a ContainerSpace).
 
-            adapters (dict):
+            adapters (dict): A dict for custom output/distribution-adapters, in case non-standard ones should
+                be used OR extra network components should be run through only for these output-components
+                (e.g. a dueling Q-network with two separate (non-shared) layers for A and V).
 
             distributions (Union[Dict,bool,str]): Distribution specification for the different output components.
                 Supported values are:
@@ -237,15 +239,30 @@ class Network(Model):
 
             self.pre_concat_networks.append(nn)
 
-    def _auto_input_lambda(self, input_component):
+    @staticmethod
+    def _auto_input_lambda(input_component):
+        """
+        Creates automatic lambda Keras layers for certain input space components (e.g. int -> one-hot).
+        This helps simplifying the generation of Networks from arbitrarily nested input-spaces.
+
+        Args:
+            input_component (Space): The input-space (sub)-component to create a Keras Lambda for.
+
+        Returns:
+            tf.keras.layers.Lambda: The Keras Lambda layer to use for processing the given input component.
+        """
         new_shape = tuple([-1 for _ in range(len(input_component.main_axes))]) + \
                     (int(tf.reduce_prod(input_component.get_shape(with_category_rank=True))),)
+        # Int -> One-hot and flatten down to main_axes.
         if isinstance(input_component, Int):
             return lambda i_: tf.reshape(tf.one_hot(i_, input_component.num_categories) if i_.dtype in [tf.int32, tf.int64] else i_, new_shape)
+        # Float -> Flatten down to main_axes.
         elif isinstance(input_component, Float):
             return lambda i_: tf.reshape(i_, new_shape)
+        # Bool -> Convert to float (0.0 and 1.0) and flatten down to main_axes.
         elif isinstance(input_component, Bool):
             return lambda i_: tf.reshape(tf.cast(i_, tf.float32), new_shape)
+        # Unknown component Space -> Error.
         else:
             raise SurrealError("Unsupported input-space type: {}!".format(type(input_component).__name__))
 

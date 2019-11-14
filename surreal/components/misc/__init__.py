@@ -1,5 +1,4 @@
 # Copyright 2019 ducandu GmbH, All Rights Reserved
-# (this is a modified version of the Apache 2.0 licensed RLgraph file of the same name).
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
 # ==============================================================================
 
 from surreal.components.misc.decay_components import Decay, Constant, LinearDecay, PolynomialDecay, ExponentialDecay
-from surreal.components.misc.generalized_advantages import GeneralizedAdvantages
 from surreal.components.misc.n_step import NStep
 from surreal.components.misc.segment_tree import SegmentTree, MinSumSegmentTree
 from surreal.components.misc.trajectory_processor import TrajectoryProcessor
@@ -32,5 +30,5 @@ Decay.__lookup_classes__ = dict(
 Decay.__default_constructor__ = Constant
 
 
-__all__ = ["NStep", "SegmentTree", "MinSumSegmentTree", "GeneralizedAdvantages", "TrajectoryProcessor"] + \
+__all__ = ["NStep", "SegmentTree", "MinSumSegmentTree", "TrajectoryProcessor"] + \
           list(set(map(lambda x: x.__name__, list(Decay.__lookup_classes__.values()))))

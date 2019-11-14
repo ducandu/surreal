@@ -58,17 +58,11 @@ class TestTrajectoryProcessor(unittest.TestCase):
 
                 # Boot-strap: If also terminal, with 0, else with last value.
                 if np.all(terminals[i]):
-                    print("Appending boot-strap val 0 at index.", i)
                     baseline_slice.append(0)
                 else:
-                    print("Appending boot-strap val {} at index {}.".format(baseline[i], i))
                     baseline_slice.append(baseline[i])
 
                 adjusted_v = np.asarray(baseline_slice)
-
-                print("adjusted_v", adjusted_v)
-                print("adjusted_v[1:]", adjusted_v[1:])
-                print("adjusted_v[:-1]",  adjusted_v[:-1])
 
                 # +1 because we want to include i-th value.
                 delta = reward[start_index:i + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
@@ -77,6 +71,73 @@ class TestTrajectoryProcessor(unittest.TestCase):
             i += 1
 
         return np.array(deltas)
+
+    gamma = 0.99
+    gae_lambda = 1.0
+    rewards_space = Float(main_axes="B")
+    values_space = Float(main_axes="B")
+    terminals_space = Bool(main_axes="B")
+
+    @staticmethod
+    def discount(x, gamma):
+        # Discounts a single sequence.
+        discounted = []
+        prev = 0
+        index = 0
+        # Apply discount to value.
+        for val in reversed(x):
+            decayed = prev + val * pow(gamma, index)
+            discounted.append(decayed)
+            index += 1
+            prev = decayed
+        return list(reversed(discounted))
+
+    @staticmethod
+    def discount_all(values, decay, terminal):
+        # Discounts multiple sub-sequences by keeping track of terminals.
+        discounted = []
+        i = len(values) - 1
+        prev_v = 0.0
+        for v in reversed(values):
+            # Arrived at new sequence, start over.
+            if np.all(terminal[i]):
+                prev_v = 0.0
+
+            # Accumulate prior value.
+            accum_v = v + decay * prev_v
+            discounted.append(accum_v)
+            prev_v = accum_v
+
+            i -= 1
+        return list(reversed(discounted))
+
+    @staticmethod
+    def gae_helper(baseline, reward, terminals, sequence_indices, gamma, gae_lambda):
+        # Bootstrap adjust.
+        deltas = []
+        start_index = 0
+        i = 0
+        sequence_indices[-1] = True
+        for _ in range(len(baseline)):
+            if np.all(sequence_indices[i]):
+                # Compute deltas for this subsequence.
+                # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
+                baseline_slice = list(baseline[start_index:i + 1])
+
+                if np.all(terminals[i]):
+                    baseline_slice.append(0)
+                else:
+                    baseline_slice.append(baseline[i])
+                adjusted_v = np.asarray(baseline_slice)
+
+                # +1 because we want to include i-th value.
+                delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
+                deltas.extend(delta)
+                start_index = i + 1
+            i += 1
+
+        deltas = np.asarray(deltas)
+        return np.asarray(TestTrajectoryProcessor.discount_all(deltas, gamma * gae_lambda, terminals))
 
     def test_calc_sequence_lengths(self):
         """
@@ -184,3 +245,59 @@ class TestTrajectoryProcessor(unittest.TestCase):
         check(expected_output_sequence_manual, expected_output_sequence_numpy)
         out = processor.reverse_apply_decays_to_trajectory(td_errors, indices, decay_value)
         check(out, expected_output_sequence_manual)
+
+    def test_gae_with_manual_numbers_and_lambda_0_5(self):
+        lambda_ = 0.5
+        lg = lambda_ * self.gamma
+        processor = TrajectoryProcessor()
+
+        r = np.array([0.1, 0.2, 0.3])
+        V = np.array([1.0, 2.0, 3.0])
+        t = np.array([False, False, False])
+        # Final interrupt signal must always be True.
+        i = np.array([False, False, True])
+
+        # Test TD-error outputs.
+        td = np.array([1.08, 1.17, 0.27])
+        out = processor.get_td_errors(V, r, t, i, None, self.gamma)
+        check(out, td, decimals=5)
+
+        expected_gaes_manual = np.array([
+            td[0] + lg * td[1] + lg * lg * td[2],
+            td[1] + lg * td[2],
+            td[2]
+        ])
+        expected_gaes_helper = self.gae_helper(V, r, t, i, self.gamma, lambda_)
+        check(expected_gaes_manual, expected_gaes_helper, decimals=5)
+        advantages = processor.get_gae_values(V, r, t, i, None, self.gamma, lambda_)
+        check(advantages, expected_gaes_manual)
+
+    def test_gae_single_non_terminal_sequence(self):
+        processor = TrajectoryProcessor()
+
+        r = self.rewards_space.sample(10)
+        V = self.values_space.sample(10)
+        t = self.terminals_space.sample(size=10, fill_value=False)
+        # Final interrupt signal must always be True.
+        i = np.array([False] * 10)
+
+        # Assume sequence indices = terminals here.
+        advantage_expected = self.gae_helper(V, r, t, i, self.gamma, self.gae_lambda)
+        advantage = processor.get_gae_values(V, r, t, i, None, self.gamma, self.gae_lambda)
+        check(advantage, advantage_expected, decimals=5)
+
+    def test_gae_multiple_sequences(self):
+        processor = TrajectoryProcessor()
+
+        r = self.rewards_space.sample(10)
+        V = self.values_space.sample(10)
+        t = [False] * 10
+        t[5] = True
+        t = np.asarray(t)
+        i = [False] * 10
+        i[5] = True
+        i = np.asarray(i)
+
+        advantage_expected = self.gae_helper(V, r, t, i, self.gamma, self.gae_lambda)
+        advantage = processor.get_gae_values(V, r, t, i, None, self.gamma, self.gae_lambda)
+        check(advantage, advantage_expected, decimals=5)

@@ -30,11 +30,6 @@ class Normal(Distribution):
             parameters (DataOpTuple): Tuple holding the mean and stddev parameters.
         """
         # Must be a Tuple of len 2 (loc and scale).
-        #assert isinstance(parameters, tuple)  #sanity_check_space(in_space, allowed_types=[Tuple])
-        #assert len(parameters) == 2, "ERROR: Expected tuple of len=2 as `parameters` to Normal!"
-        #assert isinstance(parameters[0])
-        #sanity_check_space(in_space[0], allowed_types=[Float])
-        #sanity_check_space(in_space[1], allowed_types=[Float])
         return tfp.distributions.Normal(loc=parameters[0], scale=parameters[1])
 
     def _sample_deterministic(self, distribution):

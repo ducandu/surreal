@@ -14,13 +14,19 @@
 # ==============================================================================
 
 import numpy as np
+import tensorflow as tf
 
 from surreal.makeable import Makeable
 
 
 class TrajectoryProcessor(Makeable):
     """
-    A component that owns a collection of episode trajectory calculation methods (e.g. discounting rewards).
+    A component that owns a collection of episode trajectory calculation methods (e.g. discounting rewards, n-step,
+    generalized advantage estimation, etc..).
+
+    Papers:
+    [1] High-Dimensional Continuous Control Using Generalized Advantage Estimation - Schulman et al. - U. Berkeley 2015
+        https://arxiv.org/abs/1506.02438
     """
     @staticmethod
     def get_trajectory_lengths(traject_interruptions):
@@ -169,3 +175,65 @@ class TrajectoryProcessor(Makeable):
                 start_index = i + 1
 
         return np.array(deltas)
+
+    @staticmethod
+    def get_td_errors(values, r, t, traject_interruptions, clip_rewards, gamma):
+        """
+        Returns the 1-step TD Errors (r + gamma V(s') - V(s)) after clipping rewards if applicable (see c'tor).
+
+        Args:
+            values (np.ndarray[float]): The state values V(s).
+            r (np.ndarray): Rewards in sample trajectory.
+            t (np.ndarray): Terminals in sample trajectory.
+
+            traject_interruptions (np.ndarray[bool]): The flags for where in the trajectory are interruptions.
+                Note: These may be actual terminals.
+
+            clip_rewards (Optional[float]): If not None and not 0.0,  clips rewards by this +/- value.
+            gamma (float): The discount factor gamma.
+
+        Returns:
+            np.ndarray: 1-step TD errors.
+        """
+        if clip_rewards is not None and clip_rewards > 0.0:
+            r = tf.clip_by_value(r, -clip_rewards, clip_rewards)
+
+        # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
+        # depending on terminal, then compute 1-step TD-errors: delta = r[:] + gamma * v[1:] - v[:-1]
+        # -> where len(v) = len(r) + 1 b/c v contains the extra (bootstrapped) last value.
+        # Terminals indicate boot-strapping. Sequence indices indicate episode fragments in case of a multi-environment.
+        td_errors = TrajectoryProcessor.bootstrap_values(values, r, t, traject_interruptions, gamma)
+        return td_errors
+
+    @staticmethod
+    def get_gae_values(values, r, t, traject_interruptions, clip_rewards, gamma, lambda_):
+        """
+        Returns advantage values based on GAE ([1]). Clips rewards if applicable (see c'tor).
+
+        Args:
+            values (np.ndarray[float]): The state values V(s).
+            r (np.ndarray): Rewards in sample trajectory.
+            t (np.ndarray): Terminals in sample trajectory.
+
+            traject_interruptions (np.ndarray[bool]): The flags for where in the trajectory are interruptions.
+                Note: These may be actual terminals.
+
+            clip_rewards (Optional[float]): If not None and not 0.0,  clips rewards by this +/- value.
+            gamma (float): The discount factor gamma.
+
+            lambda_ (float): The lambda value. Determines the weighting of the different n-step chunks, 0.0 meaning
+                purely 1-step, 1.0 meaning a exponentially decaying mix of n-step rewards till infinity (Monte-Carlo).
+                See paper for details.
+
+        Returns:
+            np.ndarray: Advantage estimation values.
+        """
+        deltas = TrajectoryProcessor.get_td_errors(values, r, t, traject_interruptions, clip_rewards, gamma)
+
+        gae_discount = lambda_ * gamma
+        # Apply gae discount to each sub-sequence.
+        # Note: sequences are indicated by sequence indices, which may not be terminal.
+        gae_values = TrajectoryProcessor.reverse_apply_decays_to_trajectory(
+            deltas, traject_interruptions, decay=gae_discount
+        )
+        return gae_values

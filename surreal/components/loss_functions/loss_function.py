@@ -20,17 +20,17 @@ from surreal.makeable import Makeable
 
 class LossFunction(Makeable, metaclass=ABCMeta):
     """
-    A generic (callable) LossFunction with debug logging functionality.
+    A generic (callable) LossFunction (TODO: with debug logging functionality).
     Children must only implement the `call` method with the respective loss math.
     """
     def __init__(self):
         super().__init__()
+        # Keep track of how many times this loss function has been called.
         self.num_calls = 0
 
     def __call__(self, *args, **kwargs):
         self.num_calls += 1
         out = self.call(*args, **kwargs)
-
         return out
 
     @abstractmethod

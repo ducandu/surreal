@@ -21,6 +21,7 @@ import tensorflow as tf
 import unittest
 
 from surreal.algos.dddqn import DDDQN, DDDQNConfig, DDDQNLoss
+from surreal.config import AlgoConfig
 from surreal.components.preprocessors import Preprocessor
 from surreal.envs import GridWorld, OpenAIGymEnv
 from surreal.tests.test_util import check
@@ -38,14 +39,16 @@ class TestDDDQNFunctionality(unittest.TestCase):
         """
         env = OpenAIGymEnv("MsPacman-v0", actors=4)
         # Create a Config (for any Atari game).
-        config = DDDQNConfig.make(
+        config = AlgoConfig.make(
             # Breakout should be the same as MsPacman.
             "{}/../configs/dddqn_breakout_learning.json".format(os.path.dirname(__file__)),
             memory_capacity=1000,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
-        dddqn = DDDQN(config)
+        assert isinstance(config, DDDQNConfig)
+        dddqn = config.build_algo()
+        assert isinstance(dddqn, DDDQN)
         print("DDDQN built ({}).".format(dddqn))
 
         env.terminate()

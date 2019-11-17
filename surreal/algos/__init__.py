@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from surreal.config import AlgoConfig
 from surreal.algos.rl_algo import RLAlgo, RLAlgoEvent
 from surreal.algos.dads import DADS, DADSConfig
 from surreal.algos.dqn2015 import DQN2015, DQN2015Loss, DQN2015Config
@@ -20,9 +21,16 @@ from surreal.algos.dddqn import DDDQN, DDDQNLoss, DDDQNConfig
 from surreal.algos.sac import SAC, SACLoss, SACConfig
 
 __all__ = [
-    "RLAlgo", "RLAlgoEvent",
+    "RLAlgo", "RLAlgoEvent", ""
     "DADS", "DADSConfig",
-    "DQN2015", "DQN2015Loss", "DDDQNConfig",
+    "DQN2015", "DQN2015Loss", "DQN2015Config",
     "DDDQN", "DDDQNLoss", "DDDQNConfig",
     "SAC", "SACLoss", "SACConfig"
 ]
+
+_config_classes = [DADSConfig, DQN2015Config, DDDQNConfig, SACConfig]
+
+AlgoConfig.__lookup_classes__ = {
+    **{cls.__name__: cls for cls in _config_classes},
+    **{cls.get_algo_class().__name__: cls for cls in _config_classes}
+}

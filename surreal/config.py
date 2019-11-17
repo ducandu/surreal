@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from abc import ABC, abstractmethod
 from surreal.makeable import Makeable
 
 
@@ -29,8 +30,27 @@ class Config(Makeable):
             setattr(self, k, v)
 
 
-class AlgoConfig(Config):
+class AlgoConfig(Config, ABC):
     def __init__(self, *args, **kwargs):
         self.summaries = None
 
         super().__init__(*args, **kwargs)
+
+    @classmethod
+    @abstractmethod
+    def get_algo_class(cls):
+        """
+        Returns the corresponding Algo class
+        Returns:
+        """
+        raise NotImplementedError()
+
+    def build_algo(self, name=None):
+        """
+        Builds the corresponding Algorithm
+        Args:
+            name (Optional[str]): The name of the instance
+        Returns:
+            The alg instance
+        """
+        return self.get_algo_class()(self, name=name)

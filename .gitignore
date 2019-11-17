@@ -1,6 +1,18 @@
 # Pycharm
 .idea/
 
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+
+# Distribution / packaging
+*.egg-info/
+
 # Unreal stuff
 Saved/
 Intermediate/

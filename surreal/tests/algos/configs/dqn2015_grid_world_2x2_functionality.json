@@ -1,4 +1,5 @@
 {
+  "type": "DQN2015",
   "gamma": 1.0,
 
   "memory_capacity": 4,

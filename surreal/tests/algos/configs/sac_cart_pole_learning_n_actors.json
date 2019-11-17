@@ -1,4 +1,5 @@
 {
+  "type": "SAC",
   "gamma": 0.99,
   "memory_capacity": 5000,
   "memory_batch_size": 256,

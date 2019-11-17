@@ -18,6 +18,7 @@ import os
 import unittest
 
 from surreal.algos.dads import DADS, DADSConfig
+from surreal.config import AlgoConfig
 from surreal.envs import GridWorld
 
 
@@ -33,12 +34,14 @@ class TestDADSFunctionality(unittest.TestCase):
         """
         env = GridWorld("4-room", actors=2)
         # Create a Config (for any Atari game).
-        config = DADSConfig.make(
+        config = AlgoConfig.make(
             "{}/../configs/dads_grid_world_4room_learning.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
-        dads = DADS(config, name="my-dads")
+        assert isinstance(config, DADSConfig)
+        dads = config.build_algo(name="my-dads")
+        assert isinstance(dads, DADS)
         print("DADS built ({}).".format(dads))
 
         env.terminate()

@@ -1,4 +1,5 @@
 {
+  "type": "DADS",
   "episode_buffer_capacity": 200,
 
   "policy_network": [

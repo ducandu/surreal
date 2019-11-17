@@ -1,4 +1,5 @@
 {
+  "type": "DDDQN",
   "gamma": 0.99,
 
   "n_step": 2,

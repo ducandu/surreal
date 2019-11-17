@@ -25,6 +25,7 @@ import surreal.debug as debug
 debug.KeepLastMemoryBatch = True
 
 from surreal.algos.sac import SAC, SACConfig, SACLoss
+from surreal.config import AlgoConfig
 from surreal.envs import OpenAIGymEnv
 from surreal.tests.test_util import check
 
@@ -41,13 +42,15 @@ class TestSACFunctionality(unittest.TestCase):
         """
         env = OpenAIGymEnv("Pong-v0", actors=2)
         # Create a Config (for any Atari game).
-        config = SACConfig.make(
+        config = AlgoConfig.make(
             "{}/../configs/sac_breakout_learning.json".format(os.path.dirname(__file__)),
             memory_capacity=1000,
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
-        sac = SAC(config)
+        assert isinstance(config, SACConfig)
+        sac = config.build_algo()
+        assert isinstance(sac, SAC)
         print("SAC built ({}).".format(sac))
 
         env.terminate()

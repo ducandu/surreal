@@ -1,4 +1,5 @@
 {
+  "type": "SAC",
   "gamma": 0.99,
 
   "n_step": 3,

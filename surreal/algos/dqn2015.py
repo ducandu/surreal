@@ -190,3 +190,7 @@ class DQN2015Config(AlgoConfig):
         # Keep track of which time-step stuff happened. Only important for by-time-step frequencies.
         self.last_update = 0
         self.last_sync = 0
+
+    @classmethod
+    def get_algo_class(cls):
+        return DQN2015

@@ -229,3 +229,7 @@ class DADSConfig(AlgoConfig):
 
         # Keep track of which time-step stuff happened. Only important for by-time-step frequencies.
         self.last_update = 0
+
+    @classmethod
+    def get_algo_class(cls):
+        return DADS

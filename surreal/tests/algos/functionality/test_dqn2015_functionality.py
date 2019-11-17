@@ -27,6 +27,7 @@ import surreal.debug as debug
 debug.KeepLastMemoryBatch = True
 
 from surreal.algos.dqn2015 import DQN2015, DQN2015Config, DQN2015Loss
+from surreal.config import AlgoConfig
 from surreal.components.preprocessors.preprocessor import Preprocessor
 from surreal.envs import GridWorld, OpenAIGymEnv
 from surreal.tests.test_util import check
@@ -45,12 +46,14 @@ class TestDQN2015Functionality(unittest.TestCase):
         """
         env = OpenAIGymEnv("CartPole-v0", actors=3)
         # Create a Config (for any Atari game).
-        config = DQN2015Config.make(
+        config = AlgoConfig.make(
             "{}/../configs/dqn2015_cart_pole_learning_n_actors.json".format(os.path.dirname(__file__)),
             state_space=env.actors[0].state_space,
             action_space=env.actors[0].action_space
         )
-        dqn2015 = DQN2015(config)
+        assert isinstance(config, DQN2015Config)
+        dqn2015 = config.build_algo()
+        assert isinstance(dqn2015, DQN2015)
         print("DQN2015 built ({}).".format(dqn2015))
 
         env.terminate()
